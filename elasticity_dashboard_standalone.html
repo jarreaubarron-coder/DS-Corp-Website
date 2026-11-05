@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>XED Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f4f6f8;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .canvas-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-height: 0;
+        }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-7xl mx-auto space-y-6">
+        <nav class="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-100 text-sm">
+            <a href="index.html" class="px-3 py-1.5 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700">&larr; Home</a>
+            <a href="index.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Introduction</a>
+            <span class="px-3 py-1.5 rounded-lg font-semibold text-blue-700 bg-blue-50" aria-current="page">Elasticity Dashboard</span>
+            <a href="Interactive Ridge Regression Forecast Simulator.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Ridge Regression Forecast Simulator</a>
+            <a href="DV.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Data Visualization</a>
+            <a href="TS.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Time Series Analysis</a>
+            <a href="DL.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Deep Learning Analysis</a>
+            <a href="MC.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Model Comparison</a>
+            <a href="Con.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Conclusions</a>
+        </nav>
+        <div class="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Cross Price Elasticity (XED) Dashboard</h1>
+                <p class="text-sm text-gray-500">Explore short-run and long-run elasticities with distributed lags (0 to 3 quarters).</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Job Posting Class (Quantity)</label>
+                    <select id="qty-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="software_job_postings" selected>Software Job Postings</option>
+                        <option value="overall_job_postings">Overall Job Postings</option>
+                        <option value="merged_job_postings_di">Merged Job Postings DI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Price/Revenue Variable</label>
+                    <select id="price-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="nvidia_quarterly_revenue_clean" selected>Nvidia Quarterly Revenue</option>
+                        <option value="ppi_data_processing_services">PPI Data Processing Services</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cumulative (Long-Run) XED</h3>
+                <p id="card-cumulative" class="text-3xl font-bold text-blue-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Sum of all lag coefficients</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Immediate Impact (Lag 0)</h3>
+                <p id="card-lag0" class="text-3xl font-bold text-gray-800 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Short-run elasticity</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Model R-squared</h3>
+                <p id="card-r2" class="text-3xl font-bold text-green-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Explained variance of quantity</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Durbin-Watson Stat</h3>
+                <p id="card-dw" class="text-3xl font-bold text-orange-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Value < 1.5 indicates autocorrelation</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col h-[400px]">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Elasticity Coefficients by Lag (Double-Log Structure)</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="lagChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-md font-semibold text-gray-800 mb-3">Economic Interpretation</h3>
+                    <div class="space-y-4 text-sm text-gray-600">
+                        <div>
+                            <span class="font-medium text-gray-800">Relationship Type:</span>
+                            <p id="interpret-relation" class="mt-1"></p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800">Elasticity Strength:</span>
+                            <p id="interpret-strength" class="mt-1"></p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800">Time-Lag Dynamic:</span>
+                            <p id="interpret-lag" class="mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
+                    Interpretation dynamically computed from standard OLS double-log coefficients.
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[350px]">
+            <h3 class="text-md font-semibold text-gray-800 mb-4">Normalized Time Series Comparison</h3>
+            <div class="canvas-wrapper">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dataset = [{"Unnamed: 0": "6/1/21", "overall_job_postings": 2551, "ppi_data_processing_services": 112, "software_job_postings": 2636, "merged_job_postings_di": 133, "nvidia_quarterly_revenue (millions)": " $5,661.00 ", "nvidia_quarterly_revenue_clean": 5661.0}, {"Unnamed: 0": "7/1/21", "overall_job_postings": 4258, "ppi_data_processing_services": 112, "software_job_postings": 4518, "merged_job_postings_di": 137, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "8/1/21", "overall_job_postings": 4313, "ppi_data_processing_services": 112, "software_job_postings": 4905, "merged_job_postings_di": 139, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "9/1/21", "overall_job_postings": 4294, "ppi_data_processing_services": 112, "software_job_postings": 5209, "merged_job_postings_di": 143, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "10/1/21", "overall_job_postings": 4556, "ppi_data_processing_services": 112, "software_job_postings": 5776, "merged_job_postings_di": 147, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "11/1/21", "overall_job_postings": 4587, "ppi_data_processing_services": 112, "software_job_postings": 6075, "merged_job_postings_di": 153, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "12/1/21", "overall_job_postings": 4872, "ppi_data_processing_services": 112, "software_job_postings": 6629, "merged_job_postings_di": 157, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "1/1/22", "overall_job_postings": 4851, "ppi_data_processing_services": 111, "software_job_postings": 6700, "merged_job_postings_di": 156, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "2/1/22", "overall_job_postings": 4457, "ppi_data_processing_services": 112, "software_job_postings": 6418, "merged_job_postings_di": 159, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "3/1/22", "overall_job_postings": 4972, "ppi_data_processing_services": 111, "software_job_postings": 7093, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "4/1/22", "overall_job_postings": 4794, "ppi_data_processing_services": 113, "software_job_postings": 6744, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "5/1/22", "overall_job_postings": 4973, "ppi_data_processing_services": 114, "software_job_postings": 7027, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "6/1/22", "overall_job_postings": 4758, "ppi_data_processing_services": 113, "software_job_postings": 6537, "merged_job_postings_di": 159, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "7/1/22", "overall_job_postings": 4826, "ppi_data_processing_services": 113, "software_job_postings": 6264, "merged_job_postings_di": 156, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "8/1/22", "overall_job_postings": 4757, "ppi_data_processing_services": 113, "software_job_postings": 5810, "merged_job_postings_di": 153, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "9/1/22", "overall_job_postings": 4518, "ppi_data_processing_services": 113, "software_job_postings": 5219, "merged_job_postings_di": 151, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "10/1/22", "overall_job_postings": 4604, "ppi_data_processing_services": 113, "software_job_postings": 4983, "merged_job_postings_di": 149, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "11/1/22", "overall_job_postings": 4432, "ppi_data_processing_services": 113, "software_job_postings": 4413, "merged_job_postings_di": 148, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "12/1/22", "overall_job_postings": 4477, "ppi_data_processing_services": 113, "software_job_postings": 4194, "merged_job_postings_di": 144, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "1/1/23", "overall_job_postings": 4358, "ppi_data_processing_services": 114, "software_job_postings": 3916, "merged_job_postings_di": 141, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "2/1/23", "overall_job_postings": 3824, "ppi_data_processing_services": 114, "software_job_postings": 3197, "merged_job_postings_di": 137, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "3/1/23", "overall_job_postings": 4184, "ppi_data_processing_services": 114, "software_job_postings": 3180, "merged_job_postings_di": 135, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "4/1/23", "overall_job_postings": 4081, "ppi_data_processing_services": 114, "software_job_postings": 2946, "merged_job_postings_di": 136, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "5/1/23", "overall_job_postings": 4175, "ppi_data_processing_services": 114, "software_job_postings": 3018, "merged_job_postings_di": 135, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "6/1/23", "overall_job_postings": 3954, "ppi_data_processing_services": 114, "software_job_postings": 2609, "merged_job_postings_di": 132, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "7/1/23", "overall_job_postings": 4012, "ppi_data_processing_services": 115, "software_job_postings": 2590, "merged_job_postings_di": 129, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "8/1/23", "overall_job_postings": 3984, "ppi_data_processing_services": 115, "software_job_postings": 2461, "merged_job_postings_di": 129, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "9/1/23", "overall_job_postings": 3811, "ppi_data_processing_services": 115, "software_job_postings": 2319, "merged_job_postings_di": 127, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "10/1/23", "overall_job_postings": 3873, "ppi_data_processing_services": 115, "software_job_postings": 2330, "merged_job_postings_di": 125, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "11/1/23", "overall_job_postings": 3698, "ppi_data_processing_services": 115, "software_job_postings": 2192, "merged_job_postings_di": 123, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "12/1/23", "overall_job_postings": 3760, "ppi_data_processing_services": 115, "software_job_postings": 2250, "merged_job_postings_di": 121, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "1/1/24", "overall_job_postings": 3701, "ppi_data_processing_services": 116, "software_job_postings": 2230, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "2/1/24", "overall_job_postings": 3428, "ppi_data_processing_services": 116, "software_job_postings": 2066, "merged_job_postings_di": 118, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "3/1/24", "overall_job_postings": 3676, "ppi_data_processing_services": 116, "software_job_postings": 2198, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "4/1/24", "overall_job_postings": 3555, "ppi_data_processing_services": 116, "software_job_postings": 2112, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "5/1/24", "overall_job_postings": 3592, "ppi_data_processing_services": 116, "software_job_postings": 2144, "merged_job_postings_di": 116, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "6/1/24", "overall_job_postings": 3427, "ppi_data_processing_services": 116, "software_job_postings": 2097, "merged_job_postings_di": 114, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "7/1/24", "overall_job_postings": 3523, "ppi_data_processing_services": 116, "software_job_postings": 2174, "merged_job_postings_di": 114, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "8/1/24", "overall_job_postings": 3514, "ppi_data_processing_services": 116, "software_job_postings": 2122, "merged_job_postings_di": 113, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "9/1/24", "overall_job_postings": 3373, "ppi_data_processing_services": 116, "software_job_postings": 2082, "merged_job_postings_di": 112, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "10/1/24", "overall_job_postings": 3412, "ppi_data_processing_services": 116, "software_job_postings": 2129, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "11/1/24", "overall_job_postings": 3285, "ppi_data_processing_services": 116, "software_job_postings": 2020, "merged_job_postings_di": 109, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "12/1/24", "overall_job_postings": 3418, "ppi_data_processing_services": 116, "software_job_postings": 2091, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "1/1/25", "overall_job_postings": 3415, "ppi_data_processing_services": 117, "software_job_postings": 2092, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "2/1/25", "overall_job_postings": 3061, "ppi_data_processing_services": 118, "software_job_postings": 1817, "merged_job_postings_di": 109, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "3/1/25", "overall_job_postings": 3341, "ppi_data_processing_services": 118, "software_job_postings": 1932, "merged_job_postings_di": 108, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "4/1/25", "overall_job_postings": 3203, "ppi_data_processing_services": 118, "software_job_postings": 1906, "merged_job_postings_di": 107, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "5/1/25", "overall_job_postings": 3282, "ppi_data_processing_services": 120, "software_job_postings": 1943, "merged_job_postings_di": 106, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "6/1/25", "overall_job_postings": 3159, "ppi_data_processing_services": 120, "software_job_postings": 1960, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "7/1/25", "overall_job_postings": 3233, "ppi_data_processing_services": 123, "software_job_postings": 2028, "merged_job_postings_di": 104, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "8/1/25", "overall_job_postings": 3248, "ppi_data_processing_services": 121, "software_job_postings": 2049, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "9/1/25", "overall_job_postings": 3084, "ppi_data_processing_services": 120, "software_job_postings": 1941, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "10/1/25", "overall_job_postings": 3130, "ppi_data_processing_services": 121, "software_job_postings": 2011, "merged_job_postings_di": 101, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "11/1/25", "overall_job_postings": 3040, "ppi_data_processing_services": 119, "software_job_postings": 1985, "merged_job_postings_di": 101, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "12/1/25", "overall_job_postings": 3190, "ppi_data_processing_services": 120, "software_job_postings": 2072, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "1/1/26", "overall_job_postings": 3201, "ppi_data_processing_services": 120, "software_job_postings": 2107, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "2/1/26", "overall_job_postings": 2928, "ppi_data_processing_services": 120, "software_job_postings": 1964, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "3/1/26", "overall_job_postings": 3220, "ppi_data_processing_services": 119, "software_job_postings": 2213, "merged_job_postings_di": 104, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "4/1/26", "overall_job_postings": 3080, "ppi_data_processing_services": 119, "software_job_postings": 2171, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $81,615.00 ", "nvidia_quarterly_revenue_clean": 81615.0}, {"Unnamed: 0": "5/1/26", "overall_job_postings": 3160, "ppi_data_processing_services": 121, "software_job_postings": 2269, "merged_job_postings_di": 102, "nvidia_quarterly_revenue (millions)": " $81,615.00 ", "nvidia_quarterly_revenue_clean": 81615.0}];
+        const elasticities = {"overall_job_postings": {"ppi_data_processing_services": {"lags_coef": [-2.206907410520719, -1.2191624325640087, -1.352411871473383, -1.127328777749797], "p_values": [0.08855843516305617, 0.44035355598087433, 0.3988777281778879, 0.4015795232184206], "cumulative": -5.905810492307907, "r2": 0.8421225613310862, "dw": 0.7099929746686663}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-0.16886592651729804, -0.06913639876472016, 0.006647387435479352, 0.06626081312714292], "p_values": [0.02408043026350521, 0.4576691779062563, 0.9432179529624606, 0.3734596346716236], "cumulative": -0.16509412471939594, "r2": 0.8698826883635276, "dw": 0.7989027149306187}}, "software_job_postings": {"ppi_data_processing_services": {"lags_coef": [-7.091654266304188, -4.78272316278863, -2.7050388321580128, -0.544415026442111], "p_values": [0.20319211512364743, 0.4840456586589674, 0.6958170962111851, 0.9251727717922322], "cumulative": -15.123831287692942, "r2": 0.6535223452109966, "dw": 0.08642175547024938}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-1.0189939927197549, -0.0708786607287952, -0.013445166169001594, 0.714315820535791], "p_values": [0.0021981397200929575, 0.8607674055498457, 0.9735922311255162, 0.03053006964167873], "cumulative": -0.38900199908176064, "r2": 0.7112118141683106, "dw": 0.18619408332201232}}, "merged_job_postings_di": {"ppi_data_processing_services": {"lags_coef": [-2.253241636917702, -0.903657694715466, -0.8313546544749914, -1.9530009286279384], "p_values": [0.0506867640145427, 0.5181555294977288, 0.5575495871997229, 0.10415191302403315], "cumulative": -5.941254914736098, "r2": 0.8729020346948958, "dw": 0.167711325729416}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-0.20391692253768817, -0.006168535397621579, -0.03155116967720206, 0.07627840790444337], "p_values": [0.002335174575452988, 0.9395824223212377, 0.6999445188615769, 0.2437756504547349], "cumulative": -0.16535821970806844, "r2": 0.8974232114487677, "dw": 0.1967275294617474}}};
+
+        const qtySelect = document.getElementById('qty-select');
+        const priceSelect = document.getElementById('price-select');
+
+        let lagChartInstance = null;
+        let trendChartInstance = null;
+
+        function updateDashboard() {
+            const qty = qtySelect.value;
+            const price = priceSelect.value;
+            const metrics = elasticities[qty][price];
+
+            document.getElementById('card-cumulative').innerText = metrics.cumulative.toFixed(4);
+            document.getElementById('card-lag0').innerText = metrics.lags_coef[0].toFixed(4);
+            document.getElementById('card-r2').innerText = metrics.r2.toFixed(3);
+            document.getElementById('card-dw').innerText = metrics.dw.toFixed(3);
+
+            const relText = metrics.cumulative > 0
+                ? "These goods exhibit a positive long-run cumulative XED, suggesting they behave as Substitutes. An increase in the price/revenue of the benchmark variable pushes demand up for this category overall."
+                : "These goods exhibit a negative long-run cumulative XED, behaving as Complementary services or products. Increases in the price/revenue benchmark dampens demand.";
+            document.getElementById('interpret-relation').innerText = relText;
+
+            const absCum = Math.abs(metrics.cumulative);
+            const strengthText = absCum > 1
+                ? `Highly Elastic (${absCum.toFixed(2)}): Demand is extremely sensitive to changes in the independent metric.`
+                : `Inelastic (${absCum.toFixed(2)}): Demand responds relatively weakly to changes in the independent metric.`;
+            document.getElementById('interpret-strength').innerText = strengthText;
+
+            const maxLagVal = Math.max(...metrics.lags_coef.map(Math.abs));
+            const peakLag = metrics.lags_coef.findIndex(v => Math.abs(v) === maxLagVal);
+            document.getElementById('interpret-lag').innerText = `The peak magnitude of impact occurs at Lag ${peakLag} (coefficient: ${metrics.lags_coef[peakLag].toFixed(4)}), implying that the effect takes roughly ${peakLag} quarters to completely manifest in demand dynamics.`;
+
+            if (lagChartInstance) lagChartInstance.destroy();
+            const ctx1 = document.getElementById('lagChart').getContext('2d');
+            lagChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['Lag 0 (Short Run)', 'Lag 1', 'Lag 2', 'Lag 3'],
+                    datasets: [{
+                        label: 'Elasticity Coefficient',
+                        data: metrics.lags_coef,
+                        backgroundColor: metrics.lags_coef.map(v => v >= 0 ? 'rgba(59, 130, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
+                        borderColor: metrics.lags_coef.map(v => v >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Elasticity (% change in Q per 1% change in P)' },
+                            grid: { color: '#e5e7eb' }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const dates = dataset.map(row => row['Unnamed: 0'] || '');
+            const rawQty = dataset.map(row => row[qty] || 0);
+            const rawPrice = dataset.map(row => row[price] || 0);
+
+            const minQty = Math.min(...rawQty), maxQty = Math.max(...rawQty);
+            const minPrice = Math.min(...rawPrice), maxPrice = Math.max(...rawPrice);
+
+            const normQty = rawQty.map(v => (v - minQty) / (maxQty - minQty || 1));
+            const normPrice = rawPrice.map(v => (v - minPrice) / (maxPrice - minPrice || 1));
+
+            if (trendChartInstance) trendChartInstance.destroy();
+            const ctx2 = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: `Normalized Job Postings (Quantity: ${qty})`,
+                            data: normQty,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            tension: 0.2,
+                            fill: true
+                        },
+                        {
+                            label: `Normalized Price / Metric (Price: ${price})`,
+                            data: normPrice,
+                            borderColor: '#f97316',
+                            backgroundColor: 'transparent',
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { max: 1.1, min: -0.1, grid: { color: '#e5e7eb' }, title: { display: true, text: 'Normalized Value (0 to 1)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        qtySelect.addEventListener('change', updateDashboard);
+        priceSelect.addEventListener('change', updateDashboard);
+        updateDashboard();
+    </script>
+</body>
+</html>

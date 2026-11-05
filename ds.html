@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>ds – Jarreau-Website</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-158031087360bce0ff56dc785ce39e06.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Jarreau-Website</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./index.html"> 
+<span class="menu-text">Introduction</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link active" href="./ds.html" aria-current="page"> 
+<span class="menu-text">Data Sources</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./elasticity_dashboard_standalone.html"> 
+<span class="menu-text">Elasticity Dashboard</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./Interactive Ridge Regression Forecast Simulator.html"> 
+<span class="menu-text">Ridge Regression Forecast Simulator</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./DV.html"> 
+<span class="menu-text">Data Visualization</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./TS.html"> 
+<span class="menu-text">Time Series Analysis</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./DL.html"> 
+<span class="menu-text">Deep Learning Analysis</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./MC.html"> 
+<span class="menu-text">Model Comparison</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./Con.html"> 
+<span class="menu-text">Conclusions</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#data-sources" id="toc-data-sources" class="nav-link active" data-scroll-target="#data-sources">Data Sources</a>
+  <ul class="collapse">
+  <li><a href="#planned-data-sources" id="toc-planned-data-sources" class="nav-link" data-scroll-target="#planned-data-sources">Planned Data Sources</a></li>
+  </ul></li>
+  <li><a href="#common-data-sets-for-this-project" id="toc-common-data-sets-for-this-project" class="nav-link" data-scroll-target="#common-data-sets-for-this-project">Common Data Sets for this project</a>
+  <ul class="collapse">
+  <li><a href="#important-note" id="toc-important-note" class="nav-link" data-scroll-target="#important-note">Important Note</a></li>
+  <li><a href="#google-trends-data" id="toc-google-trends-data" class="nav-link" data-scroll-target="#google-trends-data">Google Trends Data</a></li>
+  <li><a href="#how-google-trends-will-be-used-in-the-project" id="toc-how-google-trends-will-be-used-in-the-project" class="nav-link" data-scroll-target="#how-google-trends-will-be-used-in-the-project">How Google Trends Will Be Used in the Project</a>
+  <ul class="collapse">
+  <li><a href="#ai-and-data-related-job-search-interest" id="toc-ai-and-data-related-job-search-interest" class="nav-link" data-scroll-target="#ai-and-data-related-job-search-interest">AI and Data-Related Job Search Interest</a></li>
+  <li><a href="#ai-and-data-related-skill-search-interest" id="toc-ai-and-data-related-skill-search-interest" class="nav-link" data-scroll-target="#ai-and-data-related-skill-search-interest">AI and Data-Related Skill Search Interest</a></li>
+  </ul></li>
+  <li><a href="#how-these-sources-work-together" id="toc-how-these-sources-work-together" class="nav-link" data-scroll-target="#how-these-sources-work-together">How These Sources Work Together</a></li>
+  </ul></li>
+  <li><a href="#google-job-description-data" id="toc-google-job-description-data" class="nav-link" data-scroll-target="#google-job-description-data">Google Job Description Data</a></li>
+  <li><a href="#selecting-the-most-useful-data-for-the-dashboard" id="toc-selecting-the-most-useful-data-for-the-dashboard" class="nav-link" data-scroll-target="#selecting-the-most-useful-data-for-the-dashboard">Selecting the Most Useful Data for the Dashboard</a>
+  <ul class="collapse">
+  <li><a href="#angle-1-job-postings-and-availability-of-data-related-jobs" id="toc-angle-1-job-postings-and-availability-of-data-related-jobs" class="nav-link" data-scroll-target="#angle-1-job-postings-and-availability-of-data-related-jobs">Angle 1: Job Postings and Availability of Data-Related Jobs</a>
+  <ul class="collapse">
+  <li><a href="#keep" id="toc-keep" class="nav-link" data-scroll-target="#keep">Keep:</a></li>
+  <li><a href="#optional" id="toc-optional" class="nav-link" data-scroll-target="#optional">Optional:</a></li>
+  <li><a href="#main-question" id="toc-main-question" class="nav-link" data-scroll-target="#main-question">Main question:</a></li>
+  </ul></li>
+  <li><a href="#angle-2-economic-indicators-related-to-data-and-ai-infrastructure" id="toc-angle-2-economic-indicators-related-to-data-and-ai-infrastructure" class="nav-link" data-scroll-target="#angle-2-economic-indicators-related-to-data-and-ai-infrastructure">Angle 2: Economic Indicators Related to Data and AI Infrastructure</a>
+  <ul class="collapse">
+  <li><a href="#keep-1" id="toc-keep-1" class="nav-link" data-scroll-target="#keep-1">Keep:</a></li>
+  <li><a href="#optional-1" id="toc-optional-1" class="nav-link" data-scroll-target="#optional-1">Optional:</a></li>
+  <li><a href="#main-question-1" id="toc-main-question-1" class="nav-link" data-scroll-target="#main-question-1">Main question:</a></li>
+  </ul></li>
+  <li><a href="#angle-3-google-trends-for-ai-jobs-and-ai-skills" id="toc-angle-3-google-trends-for-ai-jobs-and-ai-skills" class="nav-link" data-scroll-target="#angle-3-google-trends-for-ai-jobs-and-ai-skills">Angle 3: Google Trends for AI Jobs and AI Skills</a>
+  <ul class="collapse">
+  <li><a href="#keep-2" id="toc-keep-2" class="nav-link" data-scroll-target="#keep-2">Keep:</a></li>
+  <li><a href="#optional-2" id="toc-optional-2" class="nav-link" data-scroll-target="#optional-2">Optional:</a></li>
+  <li><a href="#main-question-2" id="toc-main-question-2" class="nav-link" data-scroll-target="#main-question-2">Main question:</a></li>
+  </ul></li>
+  <li><a href="#angle-4-scraped-job-description-text" id="toc-angle-4-scraped-job-description-text" class="nav-link" data-scroll-target="#angle-4-scraped-job-description-text">Angle 4: Scraped Job Description Text</a>
+  <ul class="collapse">
+  <li><a href="#main-question-3" id="toc-main-question-3" class="nav-link" data-scroll-target="#main-question-3">Main question:</a></li>
+  </ul></li>
+  <li><a href="#overall-dashboard-story" id="toc-overall-dashboard-story" class="nav-link" data-scroll-target="#overall-dashboard-story">Overall Dashboard Story</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+
+
+
+
+<section id="data-sources" class="level1">
+<h1>Data Sources</h1>
+<div class="hero-box">
+<p>This page summarizes the main data sources we may use for the project <strong>“How AI Adoption Shapes Data-Related Job Opportunities in the U.S.”</strong> The project combines labor-market data, public interest signals, occupational information, job-posting text, news and industry reports, and economic commentary.</p>
+</div>
+<section id="planned-data-sources" class="level2">
+<h2 class="anchored" data-anchor-id="planned-data-sources">Planned Data Sources</h2>
+<div class="source-grid">
+<div class="source-card">
+<p><img src="images/logos/fred-logo.png" class="img-fluid" width="180"></p>
+<section id="fred-economic-data" class="level3">
+<h3 class="anchored" data-anchor-id="fred-economic-data">FRED Economic Data</h3>
+<p><strong>Description:</strong></p>
+<p>FRED provides economic and labor-market time series data. We may use indicators such as unemployment, job openings, labor-force participation, employment trends, and other economic measures.</p>
+<p><strong>Use in project:</strong></p>
+<p>To study broad labor-market and economic conditions related to data-related job opportunities.</p>
+<p><a href="https://fred.stlouisfed.org/">Visit FRED</a></p>
+<p><small><em>Logo/source image from the official FRED website.</em></small></p>
+</section>
+</div>
+<div class="source-card">
+<p><img src="images/logos/bls-logo.png" class="img-fluid" width="220"></p>
+<section id="bls-occupational-outlook-handbook" class="level3">
+<h3 class="anchored" data-anchor-id="bls-occupational-outlook-handbook">BLS Occupational Outlook Handbook</h3>
+<p><strong>Description:</strong></p>
+<p>The Occupational Outlook Handbook provides career information, including job growth, pay, education requirements, and employment outlook for different occupations.</p>
+<p><strong>Use in project:</strong></p>
+<p>To examine career outlooks for data science, analytics, statistics, computing, and related occupations.</p>
+<p><a href="https://www.bls.gov/">Visit BLS OOH</a></p>
+<p><small><em>Logo/source image from the official U.S. Bureau of Labor Statistics website.</em></small></p>
+</section>
+</div>
+<div class="source-card">
+<p><img src="images/logos/google-trends.png" class="img-fluid" width="160"></p>
+<section id="google-trends" class="level3">
+<h3 class="anchored" data-anchor-id="google-trends">Google Trends</h3>
+<p><strong>Description:</strong></p>
+<p>Google Trends shows search interest for selected terms over time and by location.</p>
+<p><strong>Use in project:</strong></p>
+<p>To track public interest and upskilling behavior for search terms such as “data science jobs,” “learn Python,” “AI careers,” and “machine learning jobs.”</p>
+<p><a href="https://trends.google.com/trends">Visit Google Trends</a></p>
+<p><small><em>Logo/source image from the official Google/Google Trends website. Google and Google Trends are trademarks of Google LLC.</em> </small></p>
+</section>
+</div>
+<div class="source-card">
+<p><img src="images/logos/beige-book.png" class="img-fluid" width="220"></p>
+<section id="federal-reserve-beige-book" class="level3">
+<h3 class="anchored" data-anchor-id="federal-reserve-beige-book">Federal Reserve Beige Book</h3>
+<p><strong>Description:</strong></p>
+<p>The Beige Book summarizes current economic conditions across Federal Reserve districts. It includes qualitative information on hiring, labor markets, wages, business conditions, and economic expectations.</p>
+<p><strong>Use in project:</strong></p>
+<p>To analyze text-based economic signals related to hiring conditions, workforce trends, and AI-related labor-market changes.</p>
+<p><a href="https://www.federalreserve.gov/monetarypolicy/publications/beige-book-default.htm">Visit Beige Book</a></p>
+<p><small><em>Source image from the official Board of Governors of the Federal Reserve System website.</em></small></p>
+</section>
+</div>
+<div class="source-card">
+<p><img src="images/logos/google-job.png" class="img-fluid" width="170"></p>
+<section id="google-careers-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="google-careers-job-postings">Google Careers Job Postings</h3>
+<p><strong>Description:</strong><br>
+Google Careers includes job postings for roles in software engineering, data science, machine learning, artificial intelligence, cloud computing, analytics, product, and research. These postings can provide examples of how a major technology company describes AI-related and data-related skills.</p>
+<p><strong>Use in project:</strong><br>
+To examine how AI-related skills, data-related responsibilities, and technical qualifications appear in real job postings from a major technology employer. These postings can be scraped and analyzed using text mining or NLP methods to identify common keywords, required skills, job titles, and changes in role descriptions.</p>
+<p><a href="https://www.google.com/about/careers/applications/jobs/results">Visit Google Careers</a></p>
+<p><small><em>Logo/source image from the official Google Careers website.</em></small></p>
+</section>
+</div>
+<div class="source-card">
+<p><img src="images/logos/indeed.png" class="img-fluid" width="150"></p>
+<section id="job-posting-data" class="level3">
+<h3 class="anchored" data-anchor-id="job-posting-data">Job Posting Data</h3>
+<p><strong>Description:</strong><br>
+Job postings provide information about employer demand, required skills, job responsibilities, tools, and qualifications.</p>
+<p><strong>Use in project:</strong><br>
+To study how skill requirements are changing for data science, analytics, machine learning, AI engineering, and related roles.</p>
+<p><strong>Possible sources:</strong><br>
+Public job-posting datasets, curated datasets, or job descriptions collected where appropriate.</p>
+<p><a href="https://www.indeed.com/">Visit Indeed</a></p>
+<p><small><em>Logo/source image from the official Indeed website. Indeed is a trademark of Indeed, Inc.</em></small></p>
+</section>
+</div>
+</div>
+</section>
+</section>
+<section id="common-data-sets-for-this-project" class="level1">
+<h1>Common Data Sets for this project</h1>
+<section id="important-note" class="level2 contact-card">
+<h2 class="anchored" data-anchor-id="important-note">Important Note</h2>
+<p>These data sources do not directly measure AI adoption by themselves. Instead, they provide useful indicators of the labor market and industries most closely connected to data, software, cloud computing, and information services. We will combine these sources with Google Trends and other AI-related indicators to better understand changes in demand for data-related jobs.</p>
+</section>
+<div class="contact-card">
+<section id="indeed-job-posting-indexes-from-fred" class="level2">
+<h2 class="anchored" data-anchor-id="indeed-job-posting-indexes-from-fred">Indeed Job Posting Indexes from FRED</h2>
+<p>The Indeed job-posting series are useful because they measure changes in online job postings over time. These series are indexed to a pre-pandemic baseline, which makes it easier to compare overall job posting activity with data-related or technology-related job categories.</p>
+<section id="overall-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="overall-job-postings">Overall Job Postings</h3>
+<p><a href="https://fred.stlouisfed.org/series/IHLIDXUS?utm_source=chatgpt.com">Job Postings on Indeed in the United States</a></p>
+<p>This source gives an overall measure of job posting activity in the United States. In the project, we can use this as a baseline to compare whether data-related or technology-related job postings are increasing or decreasing faster than the overall labor market.</p>
+</section>
+<section id="software-development-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="software-development-job-postings">Software Development Job Postings</h3>
+<p><a href="https://fred.stlouisfed.org/series/IHLIDXUSTPSOFTDEVE?utm_source=chatgpt.com">Software Development Job Postings on Indeed in the United States</a></p>
+<p>This source is one of the most relevant for the project because software development is closely connected to AI, data science, machine learning, and automation. We can use this series to examine whether software-related job postings changed during the period of rapid AI adoption.</p>
+</section>
+<section id="it-operations-and-helpdesk-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="it-operations-and-helpdesk-job-postings">IT Operations and Helpdesk Job Postings</h3>
+<p><a href="https://fred.stlouisfed.org/series/IHLIDXUSTPITOPHE?utm_source=chatgpt.com">IT Operations and Helpdesk Job Postings on Indeed in the United States</a></p>
+<p>This source can help us compare technical support and IT operations demand with software development demand. It may show whether AI adoption is affecting different technology-related job areas in different ways.</p>
+</section>
+<section id="mathematics-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="mathematics-job-postings">Mathematics Job Postings</h3>
+<p><a href="https://fred.stlouisfed.org/series/IHLIDXUSTPMATH?utm_source=chatgpt.com">Mathematics Job Postings on Indeed in the United States</a></p>
+<p>This source is useful because many data-related careers depend on quantitative and analytical skills. We can use this series as a proxy for demand in math-heavy roles, including analytics, modeling, statistics, and data science.</p>
+</section>
+<section id="scientific-research-and-development-job-postings" class="level3">
+<h3 class="anchored" data-anchor-id="scientific-research-and-development-job-postings">Scientific Research and Development Job Postings</h3>
+<p><a href="https://fred.stlouisfed.org/series/IHLIDXUSTPSCREDE?utm_source=chatgpt.com">Scientific Research and Development Job Postings on Indeed in the United States</a></p>
+<p>This source can help us examine demand in research-oriented jobs. Since AI is increasingly used in scientific research, this series may provide useful context for how research and technical job markets are changing.</p>
+</section>
+</section>
+<section id="data-processing-hosting-and-related-services" class="level2">
+<h2 class="anchored" data-anchor-id="data-processing-hosting-and-related-services">Data Processing, Hosting, and Related Services</h2>
+<p>These sources focus on the data-processing, hosting, cloud infrastructure, and information-services industry. This industry is highly relevant to AI adoption because AI systems depend on data storage, computing infrastructure, cloud platforms, and digital services.</p>
+<section id="gdp-data-processing-hosting-and-other-information-services" class="level3">
+<h3 class="anchored" data-anchor-id="gdp-data-processing-hosting-and-other-information-services">GDP: Data Processing, Hosting, and Other Information Services</h3>
+<p><a href="https://fred.stlouisfed.org/series/USDATAWWWNGSP?utm_source=chatgpt.com">Gross Domestic Product: Data Processing, Hosting, and Other Information Services</a></p>
+<p>This source measures the economic output of the data-processing and hosting industry. In the project, we can use it to examine whether the economic size of this industry has grown alongside the rise of AI, cloud computing, and data-driven services.</p>
+</section>
+<section id="employment-computing-infrastructure-providers-data-processing-web-hosting-and-related-services" class="level3">
+<h3 class="anchored" data-anchor-id="employment-computing-infrastructure-providers-data-processing-web-hosting-and-related-services">Employment: Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services</h3>
+<p><a href="https://fred.stlouisfed.org/series/CES5051800001?utm_source=chatgpt.com">All Employees, Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services</a></p>
+<p>This source measures employment in the computing infrastructure and data-processing industry. It can help us study whether employment in this AI-adjacent industry has grown, declined, or changed over time.</p>
+</section>
+<section id="employment-data-processing-hosting-and-related-services" class="level3">
+<h3 class="anchored" data-anchor-id="employment-data-processing-hosting-and-related-services">Employment: Data Processing, Hosting, and Related Services</h3>
+<p><a href="https://fred.stlouisfed.org/series/IPUJN518210W200000000?utm_source=chatgpt.com">Employment for Information: Data Processing, Hosting, and Related Services</a></p>
+<p>This source provides another employment measure for the data-processing and hosting industry. We can compare this with job-posting trends to see whether job postings and actual employment move in similar directions.</p>
+</section>
+<section id="total-revenue-data-processing-hosting-and-related-services" class="level3">
+<h3 class="anchored" data-anchor-id="total-revenue-data-processing-hosting-and-related-services">Total Revenue: Data Processing, Hosting, and Related Services</h3>
+<p><a href="https://fred.stlouisfed.org/series/REVEF518ALLEST?utm_source=chatgpt.com">Total Revenue for Data Processing, Hosting, and Related Services</a></p>
+<p>This source measures revenue in the data-processing and hosting industry. It can help us examine whether the business activity of data-related services has increased during the period when AI tools and cloud-based systems became more widely used.</p>
+</section>
+<section id="producer-price-index-data-processing-and-related-services" class="level3">
+<h3 class="anchored" data-anchor-id="producer-price-index-data-processing-and-related-services">Producer Price Index: Data Processing and Related Services</h3>
+<p><a href="https://fred.stlouisfed.org/series/PCU51825182?utm_source=chatgpt.com">Producer Price Index by Industry: Data Processing and Related Services</a></p>
+<p>This source measures price changes for data-processing and related services. It can be used to study whether the cost or pricing of data-related services has changed over time, especially as demand for cloud computing, data infrastructure, and AI-related services grows.</p>
+</section>
+</section>
+<section id="employment-compensation-and-wages-in-information-and-data-processing-services" class="level2">
+<h2 class="anchored" data-anchor-id="employment-compensation-and-wages-in-information-and-data-processing-services">Employment, Compensation, and Wages in Information and Data Processing Services</h2>
+<p>These sources provide information about workers, compensation, and wages in the information and data-processing services industry. They are useful for studying whether data-related work is growing and whether compensation is changing over time.</p>
+<section id="full-time-and-part-time-employees" class="level3">
+<h3 class="anchored" data-anchor-id="full-time-and-part-time-employees">Full-Time and Part-Time Employees</h3>
+<p><a href="https://fred.stlouisfed.org/series/N4256C0A173NBEA?utm_source=chatgpt.com">Full-time and part-time employees: Information and data processing services</a></p>
+<p>This source measures the number of employees in information and data-processing services. We can use it to examine whether employment in this industry has expanded during the period of increased AI and data-related activity.</p>
+</section>
+<section id="compensation-of-employees" class="level3">
+<h3 class="anchored" data-anchor-id="compensation-of-employees">Compensation of Employees</h3>
+<p><a href="https://fred.stlouisfed.org/series/N4058C0A144NBEA?utm_source=chatgpt.com">Compensation of employees: Information and data processing services</a></p>
+<p>This source measures total employee compensation in information and data-processing services. It can help us study whether the total amount paid to workers in this industry has increased over time.</p>
+</section>
+<section id="wage-and-salary-accruals-per-full-time-equivalent-employee" class="level3">
+<h3 class="anchored" data-anchor-id="wage-and-salary-accruals-per-full-time-equivalent-employee">Wage and Salary Accruals per Full-Time Equivalent Employee</h3>
+<p><a href="https://fred.stlouisfed.org/series/N4456C0A052NBEA?utm_source=chatgpt.com">Wage and salary accruals per full-time equivalent employee: Information and data processing services</a></p>
+<p>This source measures wages and salaries per full-time equivalent employee. It is useful for examining whether workers in the data-processing and information-services industry are receiving higher compensation over time.</p>
+</section>
+</section>
+<section id="historical-data-on-purchased-computer-and-data-processing-services" class="level2">
+<h2 class="anchored" data-anchor-id="historical-data-on-purchased-computer-and-data-processing-services">Historical Data on Purchased Computer and Data Processing Services</h2>
+<section id="data-processing-and-purchased-computer-services-for-scientific-rd" class="level3">
+<h3 class="anchored" data-anchor-id="data-processing-and-purchased-computer-services-for-scientific-rd">Data Processing and Purchased Computer Services for Scientific R&amp;D</h3>
+<p><a href="https://fred.stlouisfed.org/series/EXPDPSEF5417ALLEST?utm_source=chatgpt.com">Data Processing and Other Purchased Computer Services for Scientific Research and Development Services</a></p>
+<p>This source can be used as historical background on purchased data-processing and computer services in scientific research and development. However, this series is discontinued, so it should not be used as a main source for current trends. It is better suited for historical context.</p>
+</section>
+</section>
+</div>
+<section id="google-trends-data" class="level2">
+<h2 class="anchored" data-anchor-id="google-trends-data">Google Trends Data</h2>
+<p>Google Trends data will be used to measure public interest in AI-related jobs and skills in the United States. These data do not measure actual job openings, but they help us understand when people became more interested in AI careers, data science careers, and technical skills.</p>
+<p>Possible search terms include job-related terms such as “AI jobs,” “data science jobs,” “machine learning jobs,” “AI engineer,” and “ML engineer,” as well as skill-related terms such as “Python,” “LLM,” “generative AI,” “AI agents,” “deep learning,” and “RAG system.”</p>
+<p>In this project, we will compare Google Trends patterns with FRED and Indeed job-posting indicators. This will help us examine whether public interest in AI and data-related topics increased before, during, or after changes in software development, mathematics, scientific research, and data-processing job indicators.</p>
+</section>
+<section id="how-google-trends-will-be-used-in-the-project" class="level2 contact-card">
+<h2 class="anchored" data-anchor-id="how-google-trends-will-be-used-in-the-project">How Google Trends Will Be Used in the Project</h2>
+<p>Google Trends data will be used as a measure of public interest in AI-related jobs and skills. We can compare search interest in job terms such as “AI jobs,” “data science jobs,” and “machine learning jobs” with search interest in skill terms such as “Python,” “LLM,” “generative AI,” and “deep learning.” These trends can then be compared with FRED and Indeed job-posting data to examine whether public interest and labor-market indicators appear to move together over time.</p>
+<section id="ai-and-data-related-job-search-interest" class="level3">
+<h3 class="anchored" data-anchor-id="ai-and-data-related-job-search-interest">AI and Data-Related Job Search Interest</h3>
+<p><a href="https://trends.google.com/explore?q=AI%20jobs&amp;date=all&amp;geo=US">AI jobs</a></p>
+<p>This source shows search interest in the term “AI jobs” in the United States. It can be used to examine whether public interest in AI-related employment increased during the period when AI tools became more widely used.</p>
+<p><a href="https://trends.google.com/explore?q=data%2520science%2520jobs&amp;date=all&amp;geo=US">Data science jobs</a></p>
+<p>This source shows search interest in “data science jobs.” In the project, we can compare this trend with job-posting indicators to see whether public interest in data science careers moves together with labor-market demand.</p>
+<p><a href="https://trends.google.com/explore?q=machine%2520learning%2520jobs&amp;date=all&amp;geo=US">Machine learning jobs</a></p>
+<p>This source shows search interest in “machine learning jobs.” It can help us understand whether interest in machine learning careers increased as AI and automation became more common in industry.</p>
+<p><a href="https://trends.google.com/explore?q=generative%2520AI&amp;date=all&amp;geo=US">Generative AI</a></p>
+<p>This source captures search interest in “generative AI.” Since generative AI became more visible after tools such as ChatGPT became popular, this trend can help us examine whether public attention to AI increased sharply in recent years.</p>
+<p><a href="https://trends.google.com/explore?q=AI%2520engineer&amp;date=all&amp;geo=US">AI engineer</a></p>
+<p>This source shows search interest in the term “AI engineer.” It can be useful for studying whether newer AI-specific job titles are becoming more visible to the public.</p>
+<p><a href="https://trends.google.com/explore?q=ML%2520engineer&amp;date=all&amp;geo=US">ML engineer</a></p>
+<p>This source shows search interest in “ML engineer,” a common role connected to machine learning and applied AI. We can compare this trend with “AI engineer” and “data science jobs” to see how interest in different career paths changes over time.</p>
+</section>
+<section id="ai-and-data-related-skill-search-interest" class="level3">
+<h3 class="anchored" data-anchor-id="ai-and-data-related-skill-search-interest">AI and Data-Related Skill Search Interest</h3>
+<p><a href="https://trends.google.com/explore?q=python&amp;date=all&amp;geo=US">Python</a></p>
+<p>This source shows search interest in Python, one of the most commonly used programming languages in data science, machine learning, and AI. In the project, Python can be used as a general indicator of public interest in data and programming skills.</p>
+<p><a href="https://trends.google.com/explore?q=LLM&amp;date=all&amp;geo=US">LLM</a></p>
+<p>This source shows search interest in “LLM,” which stands for large language model. This term is useful for studying recent interest in generative AI systems and language-based AI tools.</p>
+<p><a href="https://trends.google.com/explore?q=Gen%2520AI&amp;date=all&amp;geo=US">Gen AI</a></p>
+<p>This source shows search interest in the shorter term “Gen AI.” It can be compared with “generative AI” to see how different wording may capture public interest in the same broader topic.</p>
+<p><a href="https://trends.google.com/explore?q=AI%2520agents&amp;date=all&amp;geo=US">AI agents</a></p>
+<p>This source shows search interest in “AI agents,” a newer AI-related term. It can help us examine whether interest is shifting from general AI tools toward more advanced AI systems that can perform tasks more independently.</p>
+<p><a href="https://trends.google.com/explore?q=open%2520AI&amp;date=all&amp;geo=US">Open AI</a></p>
+<p>This source shows search interest in “Open AI.” It can be used as a public-interest indicator for one of the major organizations associated with recent AI tools. However, we should be careful because search interest in a company name may reflect news attention as well as career or skill interest.</p>
+<p><a href="https://trends.google.com/explore?q=deep%2520learning&amp;date=all&amp;geo=US">Deep learning</a></p>
+<p>This source shows search interest in “deep learning,” an important AI method used in neural networks, computer vision, natural language processing, and generative AI. It can help us compare older AI-related terminology with newer terms such as LLM and generative AI.</p>
+<p><a href="https://trends.google.com/explore?q=rag%2520system&amp;date=all&amp;geo=US">RAG system</a></p>
+<p>This source shows search interest in “RAG system,” which refers to retrieval-augmented generation. This is a more specialized AI term and may be useful for examining whether newer technical AI skills are gaining public attention.</p>
+</section>
+</section>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Google Trends values are relative search-interest indexes, not counts of searches or job openings. A higher value means the term was searched more often relative to its own peak search interest during the selected time period and region.</p>
+</div>
+</div>
+<section id="how-these-sources-work-together" class="level2">
+<h2 class="anchored" data-anchor-id="how-these-sources-work-together">How These Sources Work Together</h2>
+<p>The FRED and Indeed data help us understand broad labor-market and industry-level patterns. The Indeed series show changes in job postings, while the FRED industry data show trends in employment, GDP, revenue, prices, compensation, and wages. Google Trends will add another perspective by showing public interest in AI and data-related topics.</p>
+<p>Together, these sources allow us to examine whether AI-related interest and data-adjacent labor-market activity appear to move together over time.</p>
+</section>
+</section>
+<section id="google-job-description-data" class="level1">
+<h1>Google Job Description Data</h1>
+<p>The code for collecting and analyzing Google Careers job description data is provided here: <a href="google_jobs.html">Google Careers Description Data Scraping</a>.</p>
+</section>
+<section id="selecting-the-most-useful-data-for-the-dashboard" class="level1 hero-box">
+<h1>Selecting the Most Useful Data for the Dashboard</h1>
+<p>Although several datasets were downloaded for this project, the final dashboard should focus only on the data that directly supports the story about <strong>AI adoption and data-related jobs in the United States</strong>. Some datasets will be used as main indicators, while others will be treated as optional or supporting variables. This helps keep the dashboard clear, focused, and easier to interpret.</p>
+<hr>
+<section id="angle-1-job-postings-and-availability-of-data-related-jobs" class="level2">
+<h2 class="anchored" data-anchor-id="angle-1-job-postings-and-availability-of-data-related-jobs">Angle 1: Job Postings and Availability of Data-Related Jobs</h2>
+<section id="keep" class="level3">
+<h3 class="anchored" data-anchor-id="keep">Keep:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Overall Job Postings</td>
+<td>Baseline for the whole labor market</td>
+</tr>
+<tr class="even">
+<td>Software Development Job Postings</td>
+<td>AI/data-adjacent technical demand</td>
+</tr>
+<tr class="odd">
+<td>Mathematics Job Postings</td>
+<td>Quantitative, data, and statistics-related demand</td>
+</tr>
+<tr class="even">
+<td>Scientific R&amp;D Job Postings</td>
+<td>Research and innovation-related demand</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="optional" class="level3">
+<h3 class="anchored" data-anchor-id="optional">Optional:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>IT Operations and Helpdesk Job Postings</td>
+<td>This category is technical, but it is less directly connected to AI adoption than software development, mathematics, and scientific R&amp;D. It can be included only if the dashboard wants to compare traditional IT demand with more AI/data-related roles.</td>
+</tr>
+</tbody>
+</table>
+<p>We will start by looking at job-posting data from Indeed/FRED. To keep the dashboard focused, we will compare overall U.S. job postings with selected AI-adjacent categories: software development, mathematics, and scientific R&amp;D. These categories are useful because they represent technical, quantitative, and research-oriented work connected to AI and data-related careers.</p>
+</section>
+<section id="main-question" class="level3">
+<h3 class="anchored" data-anchor-id="main-question">Main question:</h3>
+<p>Are AI-adjacent job postings moving differently from the overall job market?</p>
+<hr>
+</section>
+</section>
+<section id="angle-2-economic-indicators-related-to-data-and-ai-infrastructure" class="level2">
+<h2 class="anchored" data-anchor-id="angle-2-economic-indicators-related-to-data-and-ai-infrastructure">Angle 2: Economic Indicators Related to Data and AI Infrastructure</h2>
+<section id="keep-1" class="level3">
+<h3 class="anchored" data-anchor-id="keep-1">Keep:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GDP: Data Processing, Hosting, and Other Information Services</td>
+<td>Economic growth of the data/cloud industry</td>
+</tr>
+<tr class="even">
+<td>Employment: Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services</td>
+<td>Actual employment in AI-supporting infrastructure</td>
+</tr>
+<tr class="odd">
+<td>Wage and Salary Accruals per Full-Time Equivalent Employee</td>
+<td>Worker compensation in the information and data-processing services industry</td>
+</tr>
+<tr class="even">
+<td>Producer Price Index: Data Processing and Related Services</td>
+<td>Supporting indicator for price changes in data-processing services</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="optional-1" class="level3">
+<h3 class="anchored" data-anchor-id="optional-1">Optional:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Total Revenue: Data Processing, Hosting, and Related Services</td>
+<td>Useful, but GDP already gives a clear measure of economic output. Revenue can be included only if you want a stronger business-growth angle.</td>
+</tr>
+<tr class="even">
+<td>Compensation of Employees</td>
+<td>This measures total compensation, but it can increase because of more workers, higher wages, or both. Wage per full-time equivalent employee is easier to interpret.</td>
+</tr>
+<tr class="odd">
+<td>Full-Time and Part-Time Employees</td>
+<td>This may duplicate the employment series. Use only one employment measure to keep the dashboard simple.</td>
+</tr>
+<tr class="even">
+<td>Historical Data on Purchased Computer and Data Processing Services</td>
+<td>This series is discontinued, so it should not be used as a main indicator for current trends. It is better suited for historical background only.</td>
+</tr>
+</tbody>
+</table>
+<p>Next, we will examine selected economic indicators related to data processing, hosting, cloud infrastructure, and information services. These industries are important because AI systems depend on computing infrastructure, data storage, cloud platforms, and digital services. To keep the dashboard focused, we will use GDP, employment, wages, and the Producer Price Index for data-processing services. GDP shows the economic size of the industry, employment shows workforce trends, wages show worker compensation, and PPI provides supporting context about price changes in data-processing services.</p>
+</section>
+<section id="main-question-1" class="level3">
+<h3 class="anchored" data-anchor-id="main-question-1">Main question:</h3>
+<p>Is the data-processing and AI-supporting infrastructure economy growing alongside AI adoption?</p>
+<hr>
+</section>
+</section>
+<section id="angle-3-google-trends-for-ai-jobs-and-ai-skills" class="level2">
+<h2 class="anchored" data-anchor-id="angle-3-google-trends-for-ai-jobs-and-ai-skills">Angle 3: Google Trends for AI Jobs and AI Skills</h2>
+<section id="keep-2" class="level3">
+<h3 class="anchored" data-anchor-id="keep-2">Keep:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AI jobs</td>
+<td>Public interest in AI-related employment</td>
+</tr>
+<tr class="even">
+<td>Data science jobs</td>
+<td>Public interest in data science careers</td>
+</tr>
+<tr class="odd">
+<td>Machine learning jobs</td>
+<td>Public interest in machine learning careers</td>
+</tr>
+<tr class="even">
+<td>AI engineer</td>
+<td>Interest in newer AI-specific job titles</td>
+</tr>
+<tr class="odd">
+<td>Generative AI</td>
+<td>Public attention to recent AI technologies</td>
+</tr>
+<tr class="even">
+<td>LLM</td>
+<td>Interest in large language models and newer AI tools</td>
+</tr>
+<tr class="odd">
+<td>Python</td>
+<td>Useful as a general programming-skill indicator, but it is not only related to AI.</td>
+</tr>
+<tr class="even">
+<td>Deep learning</td>
+<td>Relevant to AI, but it may represent an older AI term compared with generative AI and LLM.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="optional-2" class="level3">
+<h3 class="anchored" data-anchor-id="optional-2">Optional:</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Dataset</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AI agents</td>
+<td>Interesting and current, but it may be too new or too narrow for the main dashboard.</td>
+</tr>
+<tr class="even">
+<td>RAG system</td>
+<td>Very specialized technical term. Better for a detailed AI-skills analysis, not the main dashboard.</td>
+</tr>
+<tr class="odd">
+<td>OpenAI</td>
+<td>Search interest may reflect company news and media attention, not only jobs or skills.</td>
+</tr>
+</tbody>
+</table>
+<p>We will use Google Trends data to measure public interest in AI-related jobs and skills. These data do not measure actual job openings, but they help show when people became more interested in AI careers and AI technologies. To keep this part focused, we will use job-related search terms such as AI jobs, data science jobs, machine learning jobs, and AI engineer, along with technology-related terms such as generative AI and LLM. These trends can then be compared with job-posting and economic indicators to see whether public interest increased during the same period as changes in the labor market and data infrastructure industry.</p>
+</section>
+<section id="main-question-2" class="level3">
+<h3 class="anchored" data-anchor-id="main-question-2">Main question:</h3>
+<p>Did public interest in AI-related jobs and skills increase during the same period as changes in job postings and data-related industries?</p>
+<hr>
+</section>
+</section>
+<section id="angle-4-scraped-job-description-text" class="level2">
+<h2 class="anchored" data-anchor-id="angle-4-scraped-job-description-text">Angle 4: Scraped Job Description Text</h2>
+<p>Finally, we will use scraped Google Careers job descriptions to examine the skills, tools, responsibilities, and qualifications that appear in current data-related job postings. Since these scraped descriptions may not include reliable historical dates, this part of the dashboard will be treated as a current snapshot rather than a time-series analysis. The main focus will be on identifying commonly mentioned AI-related and data-related skills, such as programming, machine learning, statistics, cloud tools, and data analysis.</p>
+<section id="main-question-3" class="level3">
+<h3 class="anchored" data-anchor-id="main-question-3">Main question:</h3>
+<p>What AI-related and data-related skills are currently appearing in job descriptions?</p>
+<hr>
+</section>
+</section>
+<section id="overall-dashboard-story" class="level2">
+<h2 class="anchored" data-anchor-id="overall-dashboard-story">Overall Dashboard Story</h2>
+<p>Together, these four angles allow the dashboard to tell a clear story. Google Trends data shows public interest in AI jobs and skills. Job-posting data shows whether AI-adjacent job categories are moving differently from the overall labor market. Economic indicators show whether the data-processing and cloud infrastructure industry is growing. Finally, scraped job descriptions show what skills employers are currently asking for in real data-related roles.</p>
+<p>The final dashboard will therefore focus on a smaller set of useful indicators instead of including every downloaded dataset. This will make the dashboard more professional and easier to interpret.</p>
+</section>
+</section>
+
+
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jarreaubarron-coder\.github\.io\/DS-Corp-Website\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

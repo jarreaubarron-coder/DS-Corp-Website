@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ridge Regression Forecast Simulator - Standalone</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tabulator CSS/JS -->
+    <link href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/css/tabulator_semanticui.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+    <style>
+        body { background-color: #f4f6f8; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
+        .canvas-wrapper { position: relative; flex-grow: 1; min-height: 0; height: 380px; }
+        .tabulator { font-size: 13px; border-radius: 8px; overflow: hidden; }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-7xl mx-auto space-y-6">
+        <nav class="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl shadow-sm border border-gray-100 text-sm">
+            <a href="index.html" class="px-3 py-1.5 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700">&larr; Home</a>
+            <a href="index.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Introduction</a>
+            <a href="elasticity_dashboard_standalone.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Elasticity Dashboard</a>
+            <span class="px-3 py-1.5 rounded-lg font-semibold text-blue-700 bg-blue-50" aria-current="page">Ridge Regression Forecast Simulator</span>
+            <a href="DV.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Data Visualization</a>
+            <a href="TS.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Time Series Analysis</a>
+            <a href="DL.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Deep Learning Analysis</a>
+            <a href="MC.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Model Comparison</a>
+            <a href="Con.html" class="px-3 py-1.5 rounded-lg text-gray-700 hover:bg-gray-100">Conclusions</a>
+        </nav>
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">📈 Ridge Regression Forecast Simulator</h1>
+                <p class="text-sm text-slate-500 mt-1">Simulate real-time job posting trends by adjusting key macroeconomic driver inputs based on the evaluated Ridge Model.</p></div>
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1.5 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg border border-rose-100">Standalone Embed Ready</span>
+            </div>
+        </div>
+
+        <!-- Primary Workspace -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Slider Controls -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Scenario Controls</h3>
+                    <p class="text-xs text-slate-400 mt-1">Drag the sliders to adjust metrics and see the live prediction update instantly.</p>
+                </div>
+                <!-- NVIDIA Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-medium text-slate-600">NVIDIA Quarterly Revenue</span>
+                        <span id="nvidia-val-display" class="font-bold text-blue-600">--</span>
+                    </div>
+                    <input type="range" id="nvidia-slider" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>Min: $5,000M</span>
+                        <span>Current: <span id="nvidia-cur"></span></span>
+                        <span>Max: $150,000M</span>
+                    </div>
+                </div>
+                <!-- Capex Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-medium text-slate-600">Capital Expenditures (Capex)</span>
+                        <span id="capex-val-display" class="font-bold text-rose-500">--</span>
+                    </div>
+                    <input type="range" id="capex-slider" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-rose-500">
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>Min: 30</span>
+                        <span>Current: <span id="capex-cur"></span></span>
+                        <span>Max: 300</span>
+                    </div>
+                </div>
+                <hr class="border-slate-100">
+                <!-- Live Output -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200/60">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Forecast Result</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <h2 id="live-prediction-display" class="text-4xl font-extrabold text-slate-900">--</h2>
+                        <span class="text-sm font-medium text-slate-500">postings</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-2">Estimated via browser-side mathematical matrix multipliers.</p>
+                </div>
+            </div>
+
+            <!-- Line Chart -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+                <h4 class="text-base font-bold text-slate-800 mb-4">Actual vs. Predicted Job Postings</h4>
+                <div class="canvas-wrapper">
+                    <canvas id="modelChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <h4 class="text-base font-bold text-slate-800">Learned Linear Weights</h4>
+                    <div class="mt-4 space-y-3">
+                        <div class="flex justify-between text-xs border-b border-slate-50 pb-2">
+                            <span class="text-slate-500">Intercept (Baseline Mean):</span>
+                            <span id="param-intercept" class="font-semibold">--</span>
+                        </div>
+                        <div class="flex justify-between text-xs border-b border-slate-50 pb-2">
+                            <span class="text-slate-500">NVIDIA Revenue Weight:</span>
+                            <span id="param-nvidia-weight" class="font-semibold text-blue-600">--</span>
+                        </div>
+                        <div class="flex justify-between text-xs pb-2">
+                            <span class="text-slate-500">Capex Weight:</span>
+                            <span id="param-capex-weight" class="font-semibold text-rose-500">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Detailed Grid -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h4 class="text-base font-bold text-slate-800 mb-3">Historical Dataset Table</h4>
+                <div id="data-table"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modelParams = {"means": [19585.17293969296, 127.96659270551639], "scales": [5694.436768142744, 46.559979372167525], "coefs": [-98.29967800725254, -148.7206709782242], "intercept": 788.8418148159667, "history_dates": ["2021-06-01", "2021-07-01", "2021-08-01", "2021-09-01", "2021-10-01", "2021-11-01", "2021-12-01", "2022-01-01", "2022-02-01", "2022-03-01", "2022-04-01", "2022-05-01", "2022-06-01", "2022-07-01", "2022-08-01", "2022-09-01", "2022-10-01", "2022-11-01", "2022-12-01", "2023-01-01", "2023-02-01", "2023-03-01", "2023-04-01", "2023-05-01", "2023-06-01", "2023-07-01", "2023-08-01", "2023-09-01", "2023-10-01", "2023-11-01", "2023-12-01", "2024-01-01", "2024-02-01", "2024-03-01", "2024-04-01", "2024-05-01", "2024-06-01", "2024-07-01", "2024-08-01", "2024-09-01", "2024-10-01", "2024-11-01", "2024-12-01", "2025-01-01", "2025-02-01", "2025-03-01", "2025-04-01", "2025-05-01", "2025-06-01", "2025-07-01", "2025-08-01", "2025-09-01", "2025-10-01", "2025-11-01", "2025-12-01", "2026-01-01"], "history_actual": [1192.0691760144439, 1413.6379884864145, 1098.1649106111483, 1095.7600543816873, 1115.4639737428017, 976.5473188845349, 1176.2654904005958, 1137.477047014909, 1097.7249914086033, 875.6676892981725, 1144.5298561711857, 819.0411663448765, 1001.6237451406973, 1212.0755249756455, 846.8643794540269, 818.4377907356204, 915.2083189841105, 770.1604874502153, 776.3150387333271, 844.1002634433826, 673.6441129066404, 852.5317710167138, 679.4129930694736, 989.9958089092271, 676.6904860891813, 677.1021277519869, 769.6969694396024, 566.4472725374413, 720.8801982402096, 796.8193492409943, 457.9462103913678, 584.562680785196, 632.6840471955952, 661.5048199290152, 414.2452737546089, 406.7914505640342, 586.022757463074, 579.3561507385856, 545.5066189317693, 533.2045608447089, 357.552462042901, 442.81707683325834, 442.8560129252077, 333.6334286253458, 626.5321594730844, 429.1144911463888, 237.28665224846378, 385.02439352409056, 201.96433725027612, 387.9589011520454, 328.13232189167223, 168.99624117963202, 332.9827477079368, 242.26935117462304, 302.73712411382434, 346.7165427693012], "history_nvidia": [10496.714153011233, 10316.28115337427, 11556.779447191602, 12886.66622004439, 11584.028443458483, 12038.590315778092, 14306.48554278012, 13949.25291097109, 13166.889250428683, 14633.469134495057, 14082.036852642084, 14534.270246429744, 15696.50772611149, 13995.81066443311, 14638.718531123332, 16255.894288940843, 16259.896152392848, 18041.520059868002, 17273.794106296973, 17224.059935028345, 20556.557859830646, 19319.678244968007, 20067.528204687926, 19029.797268332, 20364.70818456573, 21474.55895334623, 20667.188240759515, 22648.425291072945, 22126.634037353924, 22890.124432024906, 23034.657024134238, 25943.18727541803, 24531.95732071661, 23942.2890710441, 26277.090366648645, 24688.24725911989, 26572.499958641118, 24858.511694302044, 25944.54122382884, 27924.133963141852, 28920.284761813593, 28807.731917553607, 28975.260808520852, 29244.35084986526, 28521.478009632574, 29734.701246150747, 30448.45213813112, 32420.75858985528, 32161.80010775028, 30509.687117364538, 33051.35669666752, 32796.735901401866, 32959.44163605767, 34702.58537974996, 35576.45406795049, 35931.2801191162], "history_capex": [41.607824767773614, 50.54423987785149, 60.585361586762914, 70.6645421803145, 59.753712167001645, 66.32522841518002, 60.75483207812153, 63.49247921373875, 87.21616731485108, 96.28967301298096, 85.64353514783302, 100.03532897892023, 97.25272388683997, 90.82152972667603, 104.52304696417505, 119.92582021011424, 107.82355779071867, 127.46461837632188, 89.257094413648, 127.30993413466133, 123.59774340965443, 123.37356285897769, 130.91760776535503, 113.7606744903547, 135.07600839435213, 144.48021662420837, 159.3243949928697, 142.9991159990817, 143.73324578924993, 150.43697501870008, 168.24493026792985, 166.01478382386955, 161.06603432596597, 175.13267433113356, 174.60713912984403, 186.95917717805614, 173.88855997031737, 181.26883307947685, 184.2607366504966, 177.18303233686063, 198.4157482251912, 201.70146181270798, 202.77840729369734, 204.01776502988488, 195.84629257949587, 209.42991040871004, 213.8455821074596, 212.8863182168747, 222.93259742879445, 232.22232674996357, 250.6800408302871, 237.20032358286383, 241.66641299813674, 241.98281356961104, 227.17592421064592, 249.73486124550783], "history_pred": [1221.5754007674368, 1196.145644497664, 1142.6585707108227, 1087.506870033481, 1144.8446203530298, 1116.0072231796532, 1094.6507101759414, 1092.0728837803497, 1029.8007773457334, 975.5017252240807, 1019.0263887405276, 965.2498601483072, 954.0749697607183, 1003.9754450403099, 949.1122798110023, 871.9967993938114, 910.5844483757348, 817.0923704657584, 952.3866432742147, 831.6977871926076, 786.0282385871586, 808.0958280266145, 771.0891472282456, 843.8051082122302, 752.6764510726214, 703.479080285643, 670.0013539780581, 687.9462162306772, 694.6086503527014, 660.0160924246082, 600.6394062743277, 557.5546525103896, 597.7230430871429, 562.9708412803491, 524.345204795306, 512.3179016225054, 521.5409913537279, 527.5546764695187, 499.25053377154626, 487.68541908968405, 402.6684728606807, 394.1162651365844, 387.7843622969019, 379.1804966841264, 417.76012499779296, 353.42853566224835, 327.00305486173136, 296.02035631370046, 268.4010398353445, 267.2474736672814, 164.41499350590084, 211.86692202122867, 194.7927633585067, 163.69127032706047, 195.90197401647583, 117.71965482195048], "latest_nvidia": 35931.2801191162, "latest_capex": 249.73486124550783};
+        const nSlider = document.getElementById('nvidia-slider');
+        const cSlider = document.getElementById('capex-slider');
+
+        nSlider.min = 5000;
+        nSlider.max = 150000;
+        nSlider.value = Math.round(modelParams.latest_nvidia);
+
+        cSlider.min = 30;
+        cSlider.max = 300;
+        cSlider.value = Math.round(modelParams.latest_capex);
+
+        document.getElementById('nvidia-cur').innerText = '$' + Math.round(modelParams.latest_nvidia).toLocaleString();
+        document.getElementById('capex-cur').innerText = Math.round(modelParams.latest_capex);
+
+        document.getElementById('param-intercept').innerText = modelParams.intercept.toFixed(2);
+        document.getElementById('param-nvidia-weight').innerText = modelParams.coefs[0].toFixed(2);
+        document.getElementById('param-capex-weight').innerText = modelParams.coefs[1].toFixed(2);
+
+        function calculateRidgePrediction(nvidiaRev, capex) {
+            const scaledNvidia = (nvidiaRev - modelParams.means[0]) / modelParams.scales[0];
+            const scaledCapex = (capex - modelParams.means[1]) / modelParams.scales[1];
+            const prediction = (scaledNvidia * modelParams.coefs[0]) + (scaledCapex * modelParams.coefs[1]) + modelParams.intercept;
+            return Math.max(0, prediction);
+        }
+
+        function updateLivePrediction() {
+            const nvidiaVal = parseFloat(nSlider.value);
+            const capexVal = parseFloat(cSlider.value);
+            document.getElementById('nvidia-val-display').innerText = '$' + nvidiaVal.toLocaleString() + ' M';
+            document.getElementById('capex-val-display').innerText = capexVal.toFixed(1);
+            const pred = calculateRidgePrediction(nvidiaVal, capexVal);
+            document.getElementById('live-prediction-display').innerText = Math.round(pred).toLocaleString();
+        }
+
+        nSlider.addEventListener('input', updateLivePrediction);
+        cSlider.addEventListener('input', updateLivePrediction);
+        updateLivePrediction();
+
+        const ctxModel = document.getElementById('modelChart').getContext('2d');
+        new Chart(ctxModel, {
+            type: 'line',
+            data: {
+                labels: modelParams.history_dates,
+                datasets: [
+                    {
+                        label: 'Actual Job Postings',
+                        data: modelParams.history_actual,
+                        borderColor: 'rgb(30, 41, 59)',
+                        borderWidth: 2.5,
+                        pointRadius: 2.5,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Ridge Model Prediction',
+                        data: modelParams.history_pred,
+                        borderColor: 'rgb(244, 63, 94)',
+                        borderWidth: 2.5,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+                    y: { title: { display: true, text: 'Postings', font: { size: 11, weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+
+        const tableRecords = modelParams.history_dates.map((date, idx) => ({
+            date: date,
+            nvidia: modelParams.history_nvidia[idx],
+            capex: modelParams.history_capex[idx],
+            actual: modelParams.history_actual[idx],
+            predicted: modelParams.history_pred[idx]
+        }));
+
+        new Tabulator("#data-table", {
+            data: tableRecords,
+            layout: "fitColumns",
+            pagination: "local",
+            paginationSize: 8,
+            columns: [
+                {title: "Date", field: "date", sorter: "string", width: 120, cssClass: "font-semibold text-slate-800"},
+                {title: "NVIDIA Rev ($M)", field: "nvidia", hozAlign: "right", formatter: "money", formatterParams: {precision: 0, symbol: "$"}},
+                {title: "Capex", field: "capex", hozAlign: "right", formatter: "money", formatterParams: {precision: 1, symbol: ""}},
+                {title: "Actual Job Postings", field: "actual", hozAlign: "right", formatter: "money", formatterParams: {precision: 1, symbol: ""}},
+                {title: "Ridge Predicted", field: "predicted", hozAlign: "right", formatter: "money", formatterParams: {precision: 1, symbol: ""}}
+            ]
+        });
+    </script>
+</body>
+</html>

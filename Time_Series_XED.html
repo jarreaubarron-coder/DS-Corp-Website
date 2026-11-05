@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>time_series_xed – Jarreau-Website</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-158031087360bce0ff56dc785ce39e06.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="p-6 nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Jarreau-Website</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./index.html"> 
+<span class="menu-text">Introduction</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./ds.html"> 
+<span class="menu-text">Data Sources</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./elasticity_dashboard_standalone.html"> 
+<span class="menu-text">Elasticity Dashboard</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./Interactive Ridge Regression Forecast Simulator.html"> 
+<span class="menu-text">Ridge Regression Forecast Simulator</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./DV.html"> 
+<span class="menu-text">Data Visualization</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./TS.html"> 
+<span class="menu-text">Time Series Analysis</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./DL.html"> 
+<span class="menu-text">Deep Learning Analysis</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./MC.html"> 
+<span class="menu-text">Model Comparison</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./Con.html"> 
+<span class="menu-text">Conclusions</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+        
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><h1 class="text-2xl font-bold text-gray-800 title display-7">Cross Price Elasticity (XED) Dashboard</h1></header>
+
+
+
+
+<div id="cell-0" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;colab&quot;,&quot;value&quot;:{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;,&quot;height&quot;:244}}" data-outputid="7547d05f-c7de-4fb6-afca-86d90d204e03" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> statsmodels.api <span class="im">as</span> sm</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the dataset</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.read_csv(<span class="st">'/content/merged_time_series_data.csv'</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Display basic information and first few rows to locate price and quantity columns</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Columns in dataset:"</span>, df.columns.tolist())</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>display(df.head())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Columns in dataset: ['Unnamed: 0', 'overall_job_postings', 'ppi_data_processing_services', 'software_job_postings', 'merged_job_postings_di', 'nvidia_quarterly_revenue (millions)']</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div id="df-17f4c047-a14f-40dd-8703-38dc18b2f6d3" class="colab-df-container">
+    <div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Unnamed: 0</th>
+<th data-quarto-table-cell-role="th">overall_job_postings</th>
+<th data-quarto-table-cell-role="th">ppi_data_processing_services</th>
+<th data-quarto-table-cell-role="th">software_job_postings</th>
+<th data-quarto-table-cell-role="th">merged_job_postings_di</th>
+<th data-quarto-table-cell-role="th">nvidia_quarterly_revenue (millions)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>6/1/21</td>
+<td>2551</td>
+<td>112</td>
+<td>2636</td>
+<td>133</td>
+<td>$5,661.00</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>7/1/21</td>
+<td>4258</td>
+<td>112</td>
+<td>4518</td>
+<td>137</td>
+<td>$6,507.00</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>8/1/21</td>
+<td>4313</td>
+<td>112</td>
+<td>4905</td>
+<td>139</td>
+<td>$6,507.00</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>9/1/21</td>
+<td>4294</td>
+<td>112</td>
+<td>5209</td>
+<td>143</td>
+<td>$6,507.00</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>10/1/21</td>
+<td>4556</td>
+<td>112</td>
+<td>5776</td>
+<td>147</td>
+<td>$7,103.00</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-17f4c047-a14f-40dd-8703-38dc18b2f6d3')" title="Convert this dataframe to an interactive table." style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"></path>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-17f4c047-a14f-40dd-8703-38dc18b2f6d3 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-17f4c047-a14f-40dd-8703-38dc18b2f6d3');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+    </div>
+  </div>
+</div>
+</div>
+<p>Once we run the above cell, we can define our log-log model. A standard log-log regression formulation for Cross Price Elasticity with distributed lags looks like:</p>
+<p><span class="math display">\[\ln(Q_{A, t}) = \alpha + \sum_{i=0}^{L} \beta_i \ln(P_{B, t-i}) + \gamma \ln(P_{A, t}) + \epsilon_t\]</span></p>
+<p>Where: * <span class="math inline">\(Q_{A, t}\)</span> is the quantity demanded of Product A at time <span class="math inline">\(t\)</span>. * <span class="math inline">\(P_{B, t-i}\)</span> is the price of Product B at lag <span class="math inline">\(i\)</span>. * <span class="math inline">\(\beta_i\)</span> represents the cross-price elasticity at lag <span class="math inline">\(i\)</span>. The sum of these coefficients represents the cumulative/long-run cross-price elasticity. * <span class="math inline">\(P_{A, t}\)</span> is own price to control for own-price effects.</p>
+<div id="cell-2" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Placeholder code assuming column names. Please adjust 'quantity_A', 'price_A', and 'price_B' to match your actual column names from the preview above.</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># We will use 3 lags as an example for the distributed lag structure.</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calculate_cpe_with_lags(df, qty_col<span class="op">=</span><span class="st">'quantity_A'</span>, own_price_col<span class="op">=</span><span class="st">'price_A'</span>, cross_price_col<span class="op">=</span><span class="st">'price_B'</span>, lags<span class="op">=</span><span class="dv">3</span>):</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Avoid modification warning</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> df[[qty_col, own_price_col, cross_price_col]].copy().dropna()</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Take logs of the variables</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    data[<span class="st">'log_qty'</span>] <span class="op">=</span> np.log(data[qty_col])</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    data[<span class="st">'log_own_price'</span>] <span class="op">=</span> np.log(data[own_price_col])</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    data[<span class="st">'log_cross_price'</span>] <span class="op">=</span> np.log(data[cross_price_col])</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Create distributed lags for log of cross price</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    lag_cols <span class="op">=</span> []</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(lags <span class="op">+</span> <span class="dv">1</span>):</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        col_name <span class="op">=</span> <span class="ss">f'log_cross_price_lag_</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        data[col_name] <span class="op">=</span> data[<span class="st">'log_cross_price'</span>].shift(i)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        lag_cols.append(col_name)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Drop rows with NaN values resulting from shifting</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> data.dropna()</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Define independent variables (X) and dependent variable (y)</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> data[[<span class="st">'log_own_price'</span>] <span class="op">+</span> lag_cols]</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    X <span class="op">=</span> sm.add_constant(X)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    y <span class="op">=</span> data[<span class="st">'log_qty'</span>]</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Fit the OLS regression model</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> sm.OLS(y, X).fit()</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(model.summary())</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Cumulative cross-price elasticity calculation</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    cumulative_cpe <span class="op">=</span> <span class="bu">sum</span>(model.params[lag_cols])</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Cumulative Cross Price Elasticity (Sum of lags 0 to </span><span class="sc">{</span>lags<span class="sc">}</span><span class="ss">): </span><span class="sc">{</span>cumulative_cpe<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> model</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Note: Run this function by substituting actual column names once you verify the dataframe columns.</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="co"># example: model = calculate_cpe_with_lags(df, qty_col='YOUR_QTY_COL', own_price_col='YOUR_OWN_PRICE_COL', cross_price_col='YOUR_CROSS_PRICE_COL')</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="cell-3" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;colab&quot;,&quot;value&quot;:{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;}}" data-outputid="a9048f18-235f-47d5-8aff-fde332ad532f" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean the NVIDIA Quarterly Revenue column to make it numeric</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'nvidia_quarterly_revenue_clean'</span>] <span class="op">=</span> df[<span class="st">'nvidia_quarterly_revenue (millions)'</span>].astype(<span class="bu">str</span>).<span class="bu">str</span>.replace(<span class="st">'$'</span>, <span class="st">''</span>).<span class="bu">str</span>.replace(<span class="st">','</span>, <span class="st">''</span>).astype(<span class="bu">float</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Let's run the model:</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Quantity (Qty): 'software_job_postings'</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Own price proxy: 'ppi_data_processing_services'</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Cross price/revenue proxy: 'nvidia_quarterly_revenue_clean'</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># We will use 3 lags for the distributed lag structure.</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Fitting the double-log model with distributed lags..."</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> calculate_cpe_with_lags(</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    df<span class="op">=</span>df,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    qty_col<span class="op">=</span><span class="st">'software_job_postings'</span>,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    own_price_col<span class="op">=</span><span class="st">'ppi_data_processing_services'</span>,</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    cross_price_col<span class="op">=</span><span class="st">'nvidia_quarterly_revenue_clean'</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    lags<span class="op">=</span><span class="dv">3</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Fitting the double-log model with distributed lags...
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:                log_qty   R-squared:                       0.744
+Model:                            OLS   Adj. R-squared:                  0.719
+Method:                 Least Squares   F-statistic:                     29.68
+Date:                Mon, 12 Oct 2026   Prob (F-statistic):           5.40e-14
+Time:                        21:52:20   Log-Likelihood:                 1.9395
+No. Observations:                  57   AIC:                             8.121
+Df Residuals:                      51   BIC:                             20.38
+Df Model:                           5                                         
+Covariance Type:            nonrobust                                         
+=========================================================================================
+                            coef    std err          t      P&gt;|t|      [0.025      0.975]
+-----------------------------------------------------------------------------------------
+const                    48.8863     14.413      3.392      0.001      19.951      77.822
+log_own_price            -8.2394      3.209     -2.567      0.013     -14.683      -1.796
+log_cross_price_lag_0    -0.8917      0.305     -2.928      0.005      -1.503      -0.280
+log_cross_price_lag_1    -0.0415      0.382     -0.109      0.914      -0.809       0.726
+log_cross_price_lag_2    -0.0460      0.384     -0.120      0.905      -0.817       0.726
+log_cross_price_lag_3     0.8110      0.308      2.637      0.011       0.194       1.428
+==============================================================================
+Omnibus:                        6.424   Durbin-Watson:                   0.269
+Prob(Omnibus):                  0.040   Jarque-Bera (JB):                4.014
+Skew:                           0.475   Prob(JB):                        0.134
+Kurtosis:                       2.112   Cond. No.                     9.10e+03
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The condition number is large, 9.1e+03. This might indicate that there are
+strong multicollinearity or other numerical problems.
+
+Cumulative Cross Price Elasticity (Sum of lags 0 to 3): -0.1681</code></pre>
+</div>
+</div>
+<div id="cell-4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;colab&quot;,&quot;value&quot;:{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;,&quot;height&quot;:1000}}" data-outputid="bb2067f9-cad4-4c4a-8a42-7c4d4df75dd8" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># @title 📊 Cross Price Elasticity (XED) Explorer {display-mode: "form"}</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> statsmodels.api <span class="im">as</span> sm</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> google.colab <span class="im">import</span> output</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> IPython.display <span class="im">import</span> HTML</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Ensure clean dataset</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.read_csv(<span class="st">'/content/merged_time_series_data.csv'</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'nvidia_quarterly_revenue_clean'</span>] <span class="op">=</span> df[<span class="st">'nvidia_quarterly_revenue (millions)'</span>].astype(<span class="bu">str</span>).<span class="bu">str</span>.replace(<span class="st">'$'</span>, <span class="st">''</span>).<span class="bu">str</span>.replace(<span class="st">','</span>, <span class="st">''</span>).astype(<span class="bu">float</span>)</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.dropna()</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _report_js_error(message):</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"JavaScript Error: </span><span class="sc">{</span>message<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>output.register_callback(<span class="st">'report_js_error'</span>, _report_js_error)</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> compute_all_elasticities():</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Target quantity variables</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    qty_cols <span class="op">=</span> [<span class="st">'overall_job_postings'</span>, <span class="st">'software_job_postings'</span>, <span class="st">'merged_job_postings_di'</span>]</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Price variables</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    price_cols <span class="op">=</span> [<span class="st">'ppi_data_processing_services'</span>, <span class="st">'nvidia_quarterly_revenue_clean'</span>]</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> {}</span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> qty <span class="kw">in</span> qty_cols:</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>        results[qty] <span class="op">=</span> {}</span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> price <span class="kw">in</span> price_cols:</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Fit distributed lags (0 to 3 lags)</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>            temp_df <span class="op">=</span> df[[qty, price]].copy().dropna()</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Prevent zeros causing log issues</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>            temp_df <span class="op">=</span> temp_df[(temp_df[qty] <span class="op">&gt;</span> <span class="dv">0</span>) <span class="op">&amp;</span> (temp_df[price] <span class="op">&gt;</span> <span class="dv">0</span>)]</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>            temp_df[<span class="st">'log_qty'</span>] <span class="op">=</span> np.log(temp_df[qty])</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>            temp_df[<span class="st">'log_price'</span>] <span class="op">=</span> np.log(temp_df[price])</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>            lag_cols <span class="op">=</span> []</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> l <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">4</span>):</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>                col_name <span class="op">=</span> <span class="ss">f'log_price_lag_</span><span class="sc">{</span>l<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>                temp_df[col_name] <span class="op">=</span> temp_df[<span class="st">'log_price'</span>].shift(l)</span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>                lag_cols.append(col_name)</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>            temp_df <span class="op">=</span> temp_df.dropna()</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>            X <span class="op">=</span> temp_df[lag_cols]</span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>            X <span class="op">=</span> sm.add_constant(X)</span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>            y <span class="op">=</span> temp_df[<span class="st">'log_qty'</span>]</span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>            model <span class="op">=</span> sm.OLS(y, X).fit()</span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>            lags_coef <span class="op">=</span> []</span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>            p_values <span class="op">=</span> []</span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> col <span class="kw">in</span> lag_cols:</span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>                lags_coef.append(<span class="bu">float</span>(model.params[col]))</span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>                p_values.append(<span class="bu">float</span>(model.pvalues[col]))</span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>            cumulative_cpe <span class="op">=</span> <span class="bu">float</span>(<span class="bu">sum</span>(model.params[lag_cols]))</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>            results[qty][price] <span class="op">=</span> {</span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>                <span class="st">'lags_coef'</span>: lags_coef,</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>                <span class="st">'p_values'</span>: p_values,</span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>                <span class="st">'cumulative'</span>: cumulative_cpe,</span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>                <span class="st">'r2'</span>: <span class="bu">float</span>(model.rsquared),</span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>                <span class="st">'dw'</span>: <span class="bu">float</span>(sm.stats.stattools.durbin_watson(model.resid))</span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a><span class="co"># Prepare JSON data for JS consumption</span></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>raw_data <span class="op">=</span> df.to_dict(orient<span class="op">=</span><span class="st">'records'</span>)</span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a>elasticity_results <span class="op">=</span> compute_all_elasticities()</span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>html_content <span class="op">=</span> <span class="st">"""</span></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;!DOCTYPE html&gt;</span></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;html&gt;</span></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;head&gt;</span></span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;meta charset="UTF-8"&gt;</span></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;title&gt;XED Dashboard&lt;/title&gt;</span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;script src="https://cdn.jsdelivr.net/npm/chart.js"&gt;&lt;/script&gt;</span></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</span></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;style&gt;</span></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a><span class="st">        body {</span></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="st">            background-color: #f4f6f8;</span></span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a><span class="st">            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;</span></span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="st">        }</span></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a><span class="st">        .canvas-wrapper {</span></span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a><span class="st">            position: relative;</span></span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a><span class="st">            flex-grow: 1;</span></span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a><span class="st">            min-height: 0;</span></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a><span class="st">        }</span></span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;/style&gt;</span></span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;/head&gt;</span></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;body class="p-6"&gt;</span></span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;!-- Header &amp; Dashboard Controls --&gt;</span></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;div class="max-w-7xl mx-auto space-y-6"&gt;</span></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;div class="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-gray-100"&gt;</span></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div&gt;</span></span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h1 class="text-2xl font-bold text-gray-800"&gt;Cross Price Elasticity (XED) Dashboard&lt;/h1&gt;</span></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p class="text-sm text-gray-500"&gt;Explore short-run and long-run elasticities with distributed lags (0 to 3 quarters).&lt;/p&gt;</span></span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="mt-4 md:mt-0 flex gap-4"&gt;</span></span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;div&gt;</span></span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;label class="block text-xs font-semibold text-gray-600 uppercase mb-1"&gt;Job Posting Class (Quantity)&lt;/label&gt;</span></span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;select id="qty-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500"&gt;</span></span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;option value="software_job_postings" selected&gt;Software Job Postings&lt;/option&gt;</span></span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;option value="overall_job_postings"&gt;Overall Job Postings&lt;/option&gt;</span></span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;option value="merged_job_postings_di"&gt;Merged Job Postings DI&lt;/option&gt;</span></span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;/select&gt;</span></span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;/div&gt;</span></span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;div&gt;</span></span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;label class="block text-xs font-semibold text-gray-600 uppercase mb-1"&gt;Price/Revenue Variable&lt;/label&gt;</span></span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;select id="price-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500"&gt;</span></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;option value="nvidia_quarterly_revenue_clean" selected&gt;Nvidia Quarterly Revenue&lt;/option&gt;</span></span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;option value="ppi_data_processing_services"&gt;PPI Data Processing Services&lt;/option&gt;</span></span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;/select&gt;</span></span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;/div&gt;</span></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;/div&gt;</span></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;!-- Metric Summary Cards --&gt;</span></span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;div class="grid grid-cols-1 md:grid-cols-4 gap-6"&gt;</span></span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"&gt;</span></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"&gt;Cumulative (Long-Run) XED&lt;/h3&gt;</span></span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p id="card-cumulative" class="text-3xl font-bold text-blue-600 mt-2"&gt;0.00&lt;/p&gt;</span></span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p class="text-xs text-gray-400 mt-1"&gt;Sum of all lag coefficients&lt;/p&gt;</span></span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"&gt;</span></span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"&gt;Immediate Impact (Lag 0)&lt;/h3&gt;</span></span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p id="card-lag0" class="text-3xl font-bold text-gray-800 mt-2"&gt;0.00&lt;/p&gt;</span></span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p class="text-xs text-gray-400 mt-1"&gt;Short-run elasticity&lt;/p&gt;</span></span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"&gt;</span></span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"&gt;Model R-squared&lt;/h3&gt;</span></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p id="card-r2" class="text-3xl font-bold text-green-600 mt-2"&gt;0.00&lt;/p&gt;</span></span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p class="text-xs text-gray-400 mt-1"&gt;Explained variance of quantity&lt;/p&gt;</span></span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100"&gt;</span></span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"&gt;Durbin-Watson Stat&lt;/h3&gt;</span></span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p id="card-dw" class="text-3xl font-bold text-orange-600 mt-2"&gt;0.00&lt;/p&gt;</span></span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;p class="text-xs text-gray-400 mt-1"&gt;Value &lt; 1.5 indicates autocorrelation&lt;/p&gt;</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;/div&gt;</span></span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;!-- Mid Charts Section --&gt;</span></span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;div class="grid grid-cols-1 lg:grid-cols-3 gap-6"&gt;</span></span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;!-- Lag Distribution Bar Chart --&gt;</span></span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col h-[400px]"&gt;</span></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;h3 class="text-md font-semibold text-gray-800 mb-4"&gt;Elasticity Coefficients by Lag (Double-Log Structure)&lt;/h3&gt;</span></span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;div class="canvas-wrapper"&gt;</span></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;canvas id="lagChart"&gt;&lt;/canvas&gt;</span></span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;/div&gt;</span></span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;!-- Structured Interpretation Panel --&gt;</span></span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between"&gt;</span></span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;div&gt;</span></span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;h3 class="text-md font-semibold text-gray-800 mb-3"&gt;Economic Interpretation&lt;/h3&gt;</span></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;div class="space-y-4 text-sm text-gray-600"&gt;</span></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;div&gt;</span></span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;span class="font-medium text-gray-800"&gt;Relationship Type:&lt;/span&gt;</span></span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;p id="interpret-relation" class="mt-1"&gt;&lt;/p&gt;</span></span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;/div&gt;</span></span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;div&gt;</span></span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;span class="font-medium text-gray-800"&gt;Elasticity Strength:&lt;/span&gt;</span></span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;p id="interpret-strength" class="mt-1"&gt;&lt;/p&gt;</span></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;/div&gt;</span></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;div&gt;</span></span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;span class="font-medium text-gray-800"&gt;Time-Lag Dynamic:&lt;/span&gt;</span></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="st">                            &lt;p id="interpret-lag" class="mt-1"&gt;&lt;/p&gt;</span></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="st">                        &lt;/div&gt;</span></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="st">                    &lt;/div&gt;</span></span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;/div&gt;</span></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400"&gt;</span></span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a><span class="st">                    Interpretation dynamically computed from standard OLS double-log coefficients.</span></span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;/div&gt;</span></span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;/div&gt;</span></span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;!-- Bottom Trend Visualization --&gt;</span></span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[350px]"&gt;</span></span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;h3 class="text-md font-semibold text-gray-800 mb-4"&gt;Normalized Time Series Comparison&lt;/h3&gt;</span></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;div class="canvas-wrapper"&gt;</span></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a><span class="st">                &lt;canvas id="trendChart"&gt;&lt;/canvas&gt;</span></span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a><span class="st">            &lt;/div&gt;</span></span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a><span class="st">        &lt;/div&gt;</span></span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;/div&gt;</span></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;script&gt;</span></span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a><span class="st">        window.onerror = function(message) {</span></span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a><span class="st">            google.colab.kernel.invokeFunction('report_js_error', [message], </span><span class="sc">{}</span><span class="st">);</span></span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a><span class="st">        };</span></span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a><span class="st">        const dataset = DATA_PLACEHOLDER;</span></span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a><span class="st">        const elasticities = ELASTICITY_PLACEHOLDER;</span></span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a><span class="st">        const qtySelect = document.getElementById('qty-select');</span></span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a><span class="st">        const priceSelect = document.getElementById('price-select');</span></span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a><span class="st">        let lagChartInstance = null;</span></span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a><span class="st">        let trendChartInstance = null;</span></span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a><span class="st">        function updateDashboard() {</span></span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a><span class="st">            const qty = qtySelect.value;</span></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a><span class="st">            const price = priceSelect.value;</span></span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a><span class="st">            const metrics = elasticities[qty][price];</span></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a><span class="st">            // Update metric summary cards</span></span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('card-cumulative').innerText = metrics.cumulative.toFixed(4);</span></span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('card-lag0').innerText = metrics.lags_coef[0].toFixed(4);</span></span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('card-r2').innerText = metrics.r2.toFixed(3);</span></span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('card-dw').innerText = metrics.dw.toFixed(3);</span></span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a><span class="st">            // Write Interpretations</span></span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a><span class="st">            const relText = metrics.cumulative &gt; 0</span></span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a><span class="st">                ? "These goods exhibit a positive long-run cumulative XED, suggesting they behave as Substitutes. An increase in the price/revenue of the benchmark variable pushes demand up for this category overall."</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a><span class="st">                : "These goods exhibit a negative long-run cumulative XED, behaving as Complementary services or products. Increases in the price/revenue benchmark dampens demand.";</span></span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('interpret-relation').innerText = relText;</span></span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a><span class="st">            const absCum = Math.abs(metrics.cumulative);</span></span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a><span class="st">            const strengthText = absCum &gt; 1</span></span>
+<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a><span class="st">                ? `Highly Elastic (${absCum.toFixed(2)}): Demand is extremely sensitive to changes in the independent metric.`</span></span>
+<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a><span class="st">                : `Inelastic (${absCum.toFixed(2)}): Demand responds relatively weakly to changes in the independent metric.`;</span></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('interpret-strength').innerText = strengthText;</span></span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a><span class="st">            const maxLagVal = Math.max(...metrics.lags_coef.map(Math.abs));</span></span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a><span class="st">            const peakLag = metrics.lags_coef.findIndex(v =&gt; Math.abs(v) === maxLagVal);</span></span>
+<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a><span class="st">            document.getElementById('interpret-lag').innerText = `The peak magnitude of impact occurs at Lag $</span><span class="sc">{peakLag}</span><span class="st"> (coefficient: ${metrics.lags_coef[peakLag].toFixed(4)}), implying that the effect takes roughly $</span><span class="sc">{peakLag}</span><span class="st"> quarters to completely manifest in demand dynamics.`;</span></span>
+<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a><span class="st">            // Chart 1: Lags Coefficient Chart</span></span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a><span class="st">            if (lagChartInstance) lagChartInstance.destroy();</span></span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a><span class="st">            const ctx1 = document.getElementById('lagChart').getContext('2d');</span></span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a><span class="st">            lagChartInstance = new Chart(ctx1, {</span></span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a><span class="st">                type: 'bar',</span></span>
+<span id="cb6-236"><a href="#cb6-236" aria-hidden="true" tabindex="-1"></a><span class="st">                data: {</span></span>
+<span id="cb6-237"><a href="#cb6-237" aria-hidden="true" tabindex="-1"></a><span class="st">                    labels: ['Lag 0 (Short Run)', 'Lag 1', 'Lag 2', 'Lag 3'],</span></span>
+<span id="cb6-238"><a href="#cb6-238" aria-hidden="true" tabindex="-1"></a><span class="st">                    datasets: [{</span></span>
+<span id="cb6-239"><a href="#cb6-239" aria-hidden="true" tabindex="-1"></a><span class="st">                        label: 'Elasticity Coefficient',</span></span>
+<span id="cb6-240"><a href="#cb6-240" aria-hidden="true" tabindex="-1"></a><span class="st">                        data: metrics.lags_coef,</span></span>
+<span id="cb6-241"><a href="#cb6-241" aria-hidden="true" tabindex="-1"></a><span class="st">                        backgroundColor: metrics.lags_coef.map(v =&gt; v &gt;= 0 ? 'rgba(59, 130, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)'),</span></span>
+<span id="cb6-242"><a href="#cb6-242" aria-hidden="true" tabindex="-1"></a><span class="st">                        borderColor: metrics.lags_coef.map(v =&gt; v &gt;= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),</span></span>
+<span id="cb6-243"><a href="#cb6-243" aria-hidden="true" tabindex="-1"></a><span class="st">                        borderWidth: 1.5</span></span>
+<span id="cb6-244"><a href="#cb6-244" aria-hidden="true" tabindex="-1"></a><span class="st">                    }]</span></span>
+<span id="cb6-245"><a href="#cb6-245" aria-hidden="true" tabindex="-1"></a><span class="st">                },</span></span>
+<span id="cb6-246"><a href="#cb6-246" aria-hidden="true" tabindex="-1"></a><span class="st">                options: {</span></span>
+<span id="cb6-247"><a href="#cb6-247" aria-hidden="true" tabindex="-1"></a><span class="st">                    responsive: true,</span></span>
+<span id="cb6-248"><a href="#cb6-248" aria-hidden="true" tabindex="-1"></a><span class="st">                    maintainAspectRatio: false,</span></span>
+<span id="cb6-249"><a href="#cb6-249" aria-hidden="true" tabindex="-1"></a><span class="st">                    plugins: {</span></span>
+<span id="cb6-250"><a href="#cb6-250" aria-hidden="true" tabindex="-1"></a><span class="st">                        legend: { display: false }</span></span>
+<span id="cb6-251"><a href="#cb6-251" aria-hidden="true" tabindex="-1"></a><span class="st">                    },</span></span>
+<span id="cb6-252"><a href="#cb6-252" aria-hidden="true" tabindex="-1"></a><span class="st">                    scales: {</span></span>
+<span id="cb6-253"><a href="#cb6-253" aria-hidden="true" tabindex="-1"></a><span class="st">                        y: {</span></span>
+<span id="cb6-254"><a href="#cb6-254" aria-hidden="true" tabindex="-1"></a><span class="st">                            title: { display: true, text: 'Elasticity (</span><span class="sc">% c</span><span class="st">hange in Q per 1</span><span class="sc">% c</span><span class="st">hange in P)' },</span></span>
+<span id="cb6-255"><a href="#cb6-255" aria-hidden="true" tabindex="-1"></a><span class="st">                            grid: { color: '#e5e7eb' }</span></span>
+<span id="cb6-256"><a href="#cb6-256" aria-hidden="true" tabindex="-1"></a><span class="st">                        },</span></span>
+<span id="cb6-257"><a href="#cb6-257" aria-hidden="true" tabindex="-1"></a><span class="st">                        x: { grid: { display: false } }</span></span>
+<span id="cb6-258"><a href="#cb6-258" aria-hidden="true" tabindex="-1"></a><span class="st">                    }</span></span>
+<span id="cb6-259"><a href="#cb6-259" aria-hidden="true" tabindex="-1"></a><span class="st">                }</span></span>
+<span id="cb6-260"><a href="#cb6-260" aria-hidden="true" tabindex="-1"></a><span class="st">            });</span></span>
+<span id="cb6-261"><a href="#cb6-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-262"><a href="#cb6-262" aria-hidden="true" tabindex="-1"></a><span class="st">            // Chart 2: Time Series Normalized Trend comparison</span></span>
+<span id="cb6-263"><a href="#cb6-263" aria-hidden="true" tabindex="-1"></a><span class="st">            // Min-max normalization for clean visual comparison</span></span>
+<span id="cb6-264"><a href="#cb6-264" aria-hidden="true" tabindex="-1"></a><span class="st">            const dates = dataset.map(row =&gt; row['Unnamed: 0'] || '');</span></span>
+<span id="cb6-265"><a href="#cb6-265" aria-hidden="true" tabindex="-1"></a><span class="st">            const rawQty = dataset.map(row =&gt; row[qty] || 0);</span></span>
+<span id="cb6-266"><a href="#cb6-266" aria-hidden="true" tabindex="-1"></a><span class="st">            const rawPrice = dataset.map(row =&gt; row[price] || 0);</span></span>
+<span id="cb6-267"><a href="#cb6-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-268"><a href="#cb6-268" aria-hidden="true" tabindex="-1"></a><span class="st">            const minQty = Math.min(...rawQty), maxQty = Math.max(...rawQty);</span></span>
+<span id="cb6-269"><a href="#cb6-269" aria-hidden="true" tabindex="-1"></a><span class="st">            const minPrice = Math.min(...rawPrice), maxPrice = Math.max(...rawPrice);</span></span>
+<span id="cb6-270"><a href="#cb6-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-271"><a href="#cb6-271" aria-hidden="true" tabindex="-1"></a><span class="st">            const normQty = rawQty.map(v =&gt; (v - minQty) / (maxQty - minQty || 1));</span></span>
+<span id="cb6-272"><a href="#cb6-272" aria-hidden="true" tabindex="-1"></a><span class="st">            const normPrice = rawPrice.map(v =&gt; (v - minPrice) / (maxPrice - minPrice || 1));</span></span>
+<span id="cb6-273"><a href="#cb6-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-274"><a href="#cb6-274" aria-hidden="true" tabindex="-1"></a><span class="st">            if (trendChartInstance) trendChartInstance.destroy();</span></span>
+<span id="cb6-275"><a href="#cb6-275" aria-hidden="true" tabindex="-1"></a><span class="st">            const ctx2 = document.getElementById('trendChart').getContext('2d');</span></span>
+<span id="cb6-276"><a href="#cb6-276" aria-hidden="true" tabindex="-1"></a><span class="st">            trendChartInstance = new Chart(ctx2, {</span></span>
+<span id="cb6-277"><a href="#cb6-277" aria-hidden="true" tabindex="-1"></a><span class="st">                type: 'line',</span></span>
+<span id="cb6-278"><a href="#cb6-278" aria-hidden="true" tabindex="-1"></a><span class="st">                data: {</span></span>
+<span id="cb6-279"><a href="#cb6-279" aria-hidden="true" tabindex="-1"></a><span class="st">                    labels: dates,</span></span>
+<span id="cb6-280"><a href="#cb6-280" aria-hidden="true" tabindex="-1"></a><span class="st">                    datasets: [</span></span>
+<span id="cb6-281"><a href="#cb6-281" aria-hidden="true" tabindex="-1"></a><span class="st">                        {</span></span>
+<span id="cb6-282"><a href="#cb6-282" aria-hidden="true" tabindex="-1"></a><span class="st">                            label: `Normalized Job Postings (Quantity: $</span><span class="sc">{qty}</span><span class="st">)`,</span></span>
+<span id="cb6-283"><a href="#cb6-283" aria-hidden="true" tabindex="-1"></a><span class="st">                            data: normQty,</span></span>
+<span id="cb6-284"><a href="#cb6-284" aria-hidden="true" tabindex="-1"></a><span class="st">                            borderColor: '#3b82f6',</span></span>
+<span id="cb6-285"><a href="#cb6-285" aria-hidden="true" tabindex="-1"></a><span class="st">                            backgroundColor: 'rgba(59, 130, 246, 0.05)',</span></span>
+<span id="cb6-286"><a href="#cb6-286" aria-hidden="true" tabindex="-1"></a><span class="st">                            tension: 0.2,</span></span>
+<span id="cb6-287"><a href="#cb6-287" aria-hidden="true" tabindex="-1"></a><span class="st">                            fill: true</span></span>
+<span id="cb6-288"><a href="#cb6-288" aria-hidden="true" tabindex="-1"></a><span class="st">                        },</span></span>
+<span id="cb6-289"><a href="#cb6-289" aria-hidden="true" tabindex="-1"></a><span class="st">                        {</span></span>
+<span id="cb6-290"><a href="#cb6-290" aria-hidden="true" tabindex="-1"></a><span class="st">                            label: `Normalized Price / Metric (Price: $</span><span class="sc">{price}</span><span class="st">)`,</span></span>
+<span id="cb6-291"><a href="#cb6-291" aria-hidden="true" tabindex="-1"></a><span class="st">                            data: normPrice,</span></span>
+<span id="cb6-292"><a href="#cb6-292" aria-hidden="true" tabindex="-1"></a><span class="st">                            borderColor: '#f97316',</span></span>
+<span id="cb6-293"><a href="#cb6-293" aria-hidden="true" tabindex="-1"></a><span class="st">                            backgroundColor: 'transparent',</span></span>
+<span id="cb6-294"><a href="#cb6-294" aria-hidden="true" tabindex="-1"></a><span class="st">                            tension: 0.2</span></span>
+<span id="cb6-295"><a href="#cb6-295" aria-hidden="true" tabindex="-1"></a><span class="st">                        }</span></span>
+<span id="cb6-296"><a href="#cb6-296" aria-hidden="true" tabindex="-1"></a><span class="st">                    ]</span></span>
+<span id="cb6-297"><a href="#cb6-297" aria-hidden="true" tabindex="-1"></a><span class="st">                },</span></span>
+<span id="cb6-298"><a href="#cb6-298" aria-hidden="true" tabindex="-1"></a><span class="st">                options: {</span></span>
+<span id="cb6-299"><a href="#cb6-299" aria-hidden="true" tabindex="-1"></a><span class="st">                    responsive: true,</span></span>
+<span id="cb6-300"><a href="#cb6-300" aria-hidden="true" tabindex="-1"></a><span class="st">                    maintainAspectRatio: false,</span></span>
+<span id="cb6-301"><a href="#cb6-301" aria-hidden="true" tabindex="-1"></a><span class="st">                    plugins: {</span></span>
+<span id="cb6-302"><a href="#cb6-302" aria-hidden="true" tabindex="-1"></a><span class="st">                        legend: { position: 'top' }</span></span>
+<span id="cb6-303"><a href="#cb6-303" aria-hidden="true" tabindex="-1"></a><span class="st">                    },</span></span>
+<span id="cb6-304"><a href="#cb6-304" aria-hidden="true" tabindex="-1"></a><span class="st">                    scales: {</span></span>
+<span id="cb6-305"><a href="#cb6-305" aria-hidden="true" tabindex="-1"></a><span class="st">                        y: { max: 1.1, min: -0.1, grid: { color: '#e5e7eb' }, title: { display: true, text: 'Normalized Value (0 to 1)' } },</span></span>
+<span id="cb6-306"><a href="#cb6-306" aria-hidden="true" tabindex="-1"></a><span class="st">                        x: { grid: { display: false } }</span></span>
+<span id="cb6-307"><a href="#cb6-307" aria-hidden="true" tabindex="-1"></a><span class="st">                    }</span></span>
+<span id="cb6-308"><a href="#cb6-308" aria-hidden="true" tabindex="-1"></a><span class="st">                }</span></span>
+<span id="cb6-309"><a href="#cb6-309" aria-hidden="true" tabindex="-1"></a><span class="st">            });</span></span>
+<span id="cb6-310"><a href="#cb6-310" aria-hidden="true" tabindex="-1"></a><span class="st">        }</span></span>
+<span id="cb6-311"><a href="#cb6-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-312"><a href="#cb6-312" aria-hidden="true" tabindex="-1"></a><span class="st">        qtySelect.addEventListener('change', updateDashboard);</span></span>
+<span id="cb6-313"><a href="#cb6-313" aria-hidden="true" tabindex="-1"></a><span class="st">        priceSelect.addEventListener('change', updateDashboard);</span></span>
+<span id="cb6-314"><a href="#cb6-314" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-315"><a href="#cb6-315" aria-hidden="true" tabindex="-1"></a><span class="st">        // Init dashboard</span></span>
+<span id="cb6-316"><a href="#cb6-316" aria-hidden="true" tabindex="-1"></a><span class="st">        updateDashboard();</span></span>
+<span id="cb6-317"><a href="#cb6-317" aria-hidden="true" tabindex="-1"></a><span class="st">    &lt;/script&gt;</span></span>
+<span id="cb6-318"><a href="#cb6-318" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;/body&gt;</span></span>
+<span id="cb6-319"><a href="#cb6-319" aria-hidden="true" tabindex="-1"></a><span class="st">&lt;/html&gt;</span></span>
+<span id="cb6-320"><a href="#cb6-320" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span>.replace(<span class="st">'DATA_PLACEHOLDER'</span>, json.dumps(raw_data)).replace(<span class="st">'ELASTICITY_PLACEHOLDER'</span>, json.dumps(elasticity_results))</span>
+<span id="cb6-321"><a href="#cb6-321" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-322"><a href="#cb6-322" aria-hidden="true" tabindex="-1"></a>HTML(html_content)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display no-overflow-x" data-execution_count="4">
+
+
+
+
+    <meta charset="UTF-8">
+    <title>XED Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f4f6f8;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .canvas-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-height: 0;
+        }
+    </style>
+
+
+
+    <!-- Header & Dashboard Controls -->
+    <div class="max-w-7xl mx-auto space-y-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div>
+                
+                <p class="text-sm text-gray-500">Explore short-run and long-run elasticities with distributed lags (0 to 3 quarters).</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Job Posting Class (Quantity)</label>
+                    <select id="qty-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="software_job_postings" selected="">Software Job Postings</option>
+                        <option value="overall_job_postings">Overall Job Postings</option>
+                        <option value="merged_job_postings_di">Merged Job Postings DI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Price/Revenue Variable</label>
+                    <select id="price-select" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="nvidia_quarterly_revenue_clean" selected="">Nvidia Quarterly Revenue</option>
+                        <option value="ppi_data_processing_services">PPI Data Processing Services</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider anchored">Cumulative (Long-Run) XED</h3>
+                <p id="card-cumulative" class="text-3xl font-bold text-blue-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Sum of all lag coefficients</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider anchored">Immediate Impact (Lag 0)</h3>
+                <p id="card-lag0" class="text-3xl font-bold text-gray-800 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Short-run elasticity</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider anchored">Model R-squared</h3>
+                <p id="card-r2" class="text-3xl font-bold text-green-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Explained variance of quantity</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider anchored">Durbin-Watson Stat</h3>
+                <p id="card-dw" class="text-3xl font-bold text-orange-600 mt-2">0.00</p>
+                <p class="text-xs text-gray-400 mt-1">Value &lt; 1.5 indicates autocorrelation</p>
+            </div>
+        </div>
+
+        <!-- Mid Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Lag Distribution Bar Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col h-[400px]">
+                <h3 class="text-md font-semibold text-gray-800 mb-4 anchored">Elasticity Coefficients by Lag (Double-Log Structure)</h3>
+                <div class="canvas-wrapper">
+                    <canvas id="lagChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Structured Interpretation Panel -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-md font-semibold text-gray-800 mb-3 anchored">Economic Interpretation</h3>
+                    <div class="space-y-4 text-sm text-gray-600">
+                        <div>
+                            <span class="font-medium text-gray-800">Relationship Type:</span>
+                            <p id="interpret-relation" class="mt-1"></p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800">Elasticity Strength:</span>
+                            <p id="interpret-strength" class="mt-1"></p>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-800">Time-Lag Dynamic:</span>
+                            <p id="interpret-lag" class="mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
+                    Interpretation dynamically computed from standard OLS double-log coefficients.
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Trend Visualization -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-[350px]">
+            <h3 class="text-md font-semibold text-gray-800 mb-4 anchored">Normalized Time Series Comparison</h3>
+            <div class="canvas-wrapper">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onerror = function(message) {
+            google.colab.kernel.invokeFunction('report_js_error', [message], {});
+        };
+
+        const dataset = [{"Unnamed: 0": "6/1/21", "overall_job_postings": 2551, "ppi_data_processing_services": 112, "software_job_postings": 2636, "merged_job_postings_di": 133, "nvidia_quarterly_revenue (millions)": " $5,661.00 ", "nvidia_quarterly_revenue_clean": 5661.0}, {"Unnamed: 0": "7/1/21", "overall_job_postings": 4258, "ppi_data_processing_services": 112, "software_job_postings": 4518, "merged_job_postings_di": 137, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "8/1/21", "overall_job_postings": 4313, "ppi_data_processing_services": 112, "software_job_postings": 4905, "merged_job_postings_di": 139, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "9/1/21", "overall_job_postings": 4294, "ppi_data_processing_services": 112, "software_job_postings": 5209, "merged_job_postings_di": 143, "nvidia_quarterly_revenue (millions)": " $6,507.00 ", "nvidia_quarterly_revenue_clean": 6507.0}, {"Unnamed: 0": "10/1/21", "overall_job_postings": 4556, "ppi_data_processing_services": 112, "software_job_postings": 5776, "merged_job_postings_di": 147, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "11/1/21", "overall_job_postings": 4587, "ppi_data_processing_services": 112, "software_job_postings": 6075, "merged_job_postings_di": 153, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "12/1/21", "overall_job_postings": 4872, "ppi_data_processing_services": 112, "software_job_postings": 6629, "merged_job_postings_di": 157, "nvidia_quarterly_revenue (millions)": " $7,103.00 ", "nvidia_quarterly_revenue_clean": 7103.0}, {"Unnamed: 0": "1/1/22", "overall_job_postings": 4851, "ppi_data_processing_services": 111, "software_job_postings": 6700, "merged_job_postings_di": 156, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "2/1/22", "overall_job_postings": 4457, "ppi_data_processing_services": 112, "software_job_postings": 6418, "merged_job_postings_di": 159, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "3/1/22", "overall_job_postings": 4972, "ppi_data_processing_services": 111, "software_job_postings": 7093, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $7,643.00 ", "nvidia_quarterly_revenue_clean": 7643.0}, {"Unnamed: 0": "4/1/22", "overall_job_postings": 4794, "ppi_data_processing_services": 113, "software_job_postings": 6744, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "5/1/22", "overall_job_postings": 4973, "ppi_data_processing_services": 114, "software_job_postings": 7027, "merged_job_postings_di": 160, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "6/1/22", "overall_job_postings": 4758, "ppi_data_processing_services": 113, "software_job_postings": 6537, "merged_job_postings_di": 159, "nvidia_quarterly_revenue (millions)": " $8,288.00 ", "nvidia_quarterly_revenue_clean": 8288.0}, {"Unnamed: 0": "7/1/22", "overall_job_postings": 4826, "ppi_data_processing_services": 113, "software_job_postings": 6264, "merged_job_postings_di": 156, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "8/1/22", "overall_job_postings": 4757, "ppi_data_processing_services": 113, "software_job_postings": 5810, "merged_job_postings_di": 153, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "9/1/22", "overall_job_postings": 4518, "ppi_data_processing_services": 113, "software_job_postings": 5219, "merged_job_postings_di": 151, "nvidia_quarterly_revenue (millions)": " $6,704.00 ", "nvidia_quarterly_revenue_clean": 6704.0}, {"Unnamed: 0": "10/1/22", "overall_job_postings": 4604, "ppi_data_processing_services": 113, "software_job_postings": 4983, "merged_job_postings_di": 149, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "11/1/22", "overall_job_postings": 4432, "ppi_data_processing_services": 113, "software_job_postings": 4413, "merged_job_postings_di": 148, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "12/1/22", "overall_job_postings": 4477, "ppi_data_processing_services": 113, "software_job_postings": 4194, "merged_job_postings_di": 144, "nvidia_quarterly_revenue (millions)": " $5,931.00 ", "nvidia_quarterly_revenue_clean": 5931.0}, {"Unnamed: 0": "1/1/23", "overall_job_postings": 4358, "ppi_data_processing_services": 114, "software_job_postings": 3916, "merged_job_postings_di": 141, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "2/1/23", "overall_job_postings": 3824, "ppi_data_processing_services": 114, "software_job_postings": 3197, "merged_job_postings_di": 137, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "3/1/23", "overall_job_postings": 4184, "ppi_data_processing_services": 114, "software_job_postings": 3180, "merged_job_postings_di": 135, "nvidia_quarterly_revenue (millions)": " $6,051.00 ", "nvidia_quarterly_revenue_clean": 6051.0}, {"Unnamed: 0": "4/1/23", "overall_job_postings": 4081, "ppi_data_processing_services": 114, "software_job_postings": 2946, "merged_job_postings_di": 136, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "5/1/23", "overall_job_postings": 4175, "ppi_data_processing_services": 114, "software_job_postings": 3018, "merged_job_postings_di": 135, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "6/1/23", "overall_job_postings": 3954, "ppi_data_processing_services": 114, "software_job_postings": 2609, "merged_job_postings_di": 132, "nvidia_quarterly_revenue (millions)": " $7,192.00 ", "nvidia_quarterly_revenue_clean": 7192.0}, {"Unnamed: 0": "7/1/23", "overall_job_postings": 4012, "ppi_data_processing_services": 115, "software_job_postings": 2590, "merged_job_postings_di": 129, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "8/1/23", "overall_job_postings": 3984, "ppi_data_processing_services": 115, "software_job_postings": 2461, "merged_job_postings_di": 129, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "9/1/23", "overall_job_postings": 3811, "ppi_data_processing_services": 115, "software_job_postings": 2319, "merged_job_postings_di": 127, "nvidia_quarterly_revenue (millions)": " $13,507.00 ", "nvidia_quarterly_revenue_clean": 13507.0}, {"Unnamed: 0": "10/1/23", "overall_job_postings": 3873, "ppi_data_processing_services": 115, "software_job_postings": 2330, "merged_job_postings_di": 125, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "11/1/23", "overall_job_postings": 3698, "ppi_data_processing_services": 115, "software_job_postings": 2192, "merged_job_postings_di": 123, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "12/1/23", "overall_job_postings": 3760, "ppi_data_processing_services": 115, "software_job_postings": 2250, "merged_job_postings_di": 121, "nvidia_quarterly_revenue (millions)": " $18,120.00 ", "nvidia_quarterly_revenue_clean": 18120.0}, {"Unnamed: 0": "1/1/24", "overall_job_postings": 3701, "ppi_data_processing_services": 116, "software_job_postings": 2230, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "2/1/24", "overall_job_postings": 3428, "ppi_data_processing_services": 116, "software_job_postings": 2066, "merged_job_postings_di": 118, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "3/1/24", "overall_job_postings": 3676, "ppi_data_processing_services": 116, "software_job_postings": 2198, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $22,103.00 ", "nvidia_quarterly_revenue_clean": 22103.0}, {"Unnamed: 0": "4/1/24", "overall_job_postings": 3555, "ppi_data_processing_services": 116, "software_job_postings": 2112, "merged_job_postings_di": 119, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "5/1/24", "overall_job_postings": 3592, "ppi_data_processing_services": 116, "software_job_postings": 2144, "merged_job_postings_di": 116, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "6/1/24", "overall_job_postings": 3427, "ppi_data_processing_services": 116, "software_job_postings": 2097, "merged_job_postings_di": 114, "nvidia_quarterly_revenue (millions)": " $26,044.00 ", "nvidia_quarterly_revenue_clean": 26044.0}, {"Unnamed: 0": "7/1/24", "overall_job_postings": 3523, "ppi_data_processing_services": 116, "software_job_postings": 2174, "merged_job_postings_di": 114, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "8/1/24", "overall_job_postings": 3514, "ppi_data_processing_services": 116, "software_job_postings": 2122, "merged_job_postings_di": 113, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "9/1/24", "overall_job_postings": 3373, "ppi_data_processing_services": 116, "software_job_postings": 2082, "merged_job_postings_di": 112, "nvidia_quarterly_revenue (millions)": " $30,040.00 ", "nvidia_quarterly_revenue_clean": 30040.0}, {"Unnamed: 0": "10/1/24", "overall_job_postings": 3412, "ppi_data_processing_services": 116, "software_job_postings": 2129, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "11/1/24", "overall_job_postings": 3285, "ppi_data_processing_services": 116, "software_job_postings": 2020, "merged_job_postings_di": 109, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "12/1/24", "overall_job_postings": 3418, "ppi_data_processing_services": 116, "software_job_postings": 2091, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $35,082.00 ", "nvidia_quarterly_revenue_clean": 35082.0}, {"Unnamed: 0": "1/1/25", "overall_job_postings": 3415, "ppi_data_processing_services": 117, "software_job_postings": 2092, "merged_job_postings_di": 110, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "2/1/25", "overall_job_postings": 3061, "ppi_data_processing_services": 118, "software_job_postings": 1817, "merged_job_postings_di": 109, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "3/1/25", "overall_job_postings": 3341, "ppi_data_processing_services": 118, "software_job_postings": 1932, "merged_job_postings_di": 108, "nvidia_quarterly_revenue (millions)": " $39,331.00 ", "nvidia_quarterly_revenue_clean": 39331.0}, {"Unnamed: 0": "4/1/25", "overall_job_postings": 3203, "ppi_data_processing_services": 118, "software_job_postings": 1906, "merged_job_postings_di": 107, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "5/1/25", "overall_job_postings": 3282, "ppi_data_processing_services": 120, "software_job_postings": 1943, "merged_job_postings_di": 106, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "6/1/25", "overall_job_postings": 3159, "ppi_data_processing_services": 120, "software_job_postings": 1960, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $44,062.00 ", "nvidia_quarterly_revenue_clean": 44062.0}, {"Unnamed: 0": "7/1/25", "overall_job_postings": 3233, "ppi_data_processing_services": 123, "software_job_postings": 2028, "merged_job_postings_di": 104, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "8/1/25", "overall_job_postings": 3248, "ppi_data_processing_services": 121, "software_job_postings": 2049, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "9/1/25", "overall_job_postings": 3084, "ppi_data_processing_services": 120, "software_job_postings": 1941, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $46,743.00 ", "nvidia_quarterly_revenue_clean": 46743.0}, {"Unnamed: 0": "10/1/25", "overall_job_postings": 3130, "ppi_data_processing_services": 121, "software_job_postings": 2011, "merged_job_postings_di": 101, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "11/1/25", "overall_job_postings": 3040, "ppi_data_processing_services": 119, "software_job_postings": 1985, "merged_job_postings_di": 101, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "12/1/25", "overall_job_postings": 3190, "ppi_data_processing_services": 120, "software_job_postings": 2072, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $57,006.00 ", "nvidia_quarterly_revenue_clean": 57006.0}, {"Unnamed: 0": "1/1/26", "overall_job_postings": 3201, "ppi_data_processing_services": 120, "software_job_postings": 2107, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "2/1/26", "overall_job_postings": 2928, "ppi_data_processing_services": 120, "software_job_postings": 1964, "merged_job_postings_di": 105, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "3/1/26", "overall_job_postings": 3220, "ppi_data_processing_services": 119, "software_job_postings": 2213, "merged_job_postings_di": 104, "nvidia_quarterly_revenue (millions)": " $68,127.00 ", "nvidia_quarterly_revenue_clean": 68127.0}, {"Unnamed: 0": "4/1/26", "overall_job_postings": 3080, "ppi_data_processing_services": 119, "software_job_postings": 2171, "merged_job_postings_di": 103, "nvidia_quarterly_revenue (millions)": " $81,615.00 ", "nvidia_quarterly_revenue_clean": 81615.0}, {"Unnamed: 0": "5/1/26", "overall_job_postings": 3160, "ppi_data_processing_services": 121, "software_job_postings": 2269, "merged_job_postings_di": 102, "nvidia_quarterly_revenue (millions)": " $81,615.00 ", "nvidia_quarterly_revenue_clean": 81615.0}];
+        const elasticities = {"overall_job_postings": {"ppi_data_processing_services": {"lags_coef": [-2.206907410520719, -1.2191624325640087, -1.352411871473383, -1.127328777749797], "p_values": [0.08855843516305617, 0.44035355598087433, 0.3988777281778879, 0.4015795232184206], "cumulative": -5.905810492307907, "r2": 0.8421225613310862, "dw": 0.7099929746686663}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-0.16886592651729804, -0.06913639876472016, 0.006647387435479352, 0.06626081312714292], "p_values": [0.02408043026350521, 0.4576691779062563, 0.9432179529624606, 0.3734596346716236], "cumulative": -0.16509412471939594, "r2": 0.8698826883635276, "dw": 0.7989027149306187}}, "software_job_postings": {"ppi_data_processing_services": {"lags_coef": [-7.091654266304188, -4.78272316278863, -2.7050388321580128, -0.544415026442111], "p_values": [0.20319211512364743, 0.4840456586589674, 0.6958170962111851, 0.9251727717922322], "cumulative": -15.123831287692942, "r2": 0.6535223452109966, "dw": 0.08642175547024938}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-1.0189939927197549, -0.0708786607287952, -0.013445166169001594, 0.714315820535791], "p_values": [0.0021981397200929575, 0.8607674055498457, 0.9735922311255162, 0.03053006964167873], "cumulative": -0.38900199908176064, "r2": 0.7112118141683106, "dw": 0.18619408332201232}}, "merged_job_postings_di": {"ppi_data_processing_services": {"lags_coef": [-2.253241636917702, -0.903657694715466, -0.8313546544749914, -1.9530009286279384], "p_values": [0.0506867640145427, 0.5181555294977288, 0.5575495871997229, 0.10415191302403315], "cumulative": -5.941254914736098, "r2": 0.8729020346948958, "dw": 0.167711325729416}, "nvidia_quarterly_revenue_clean": {"lags_coef": [-0.20391692253768817, -0.006168535397621579, -0.03155116967720206, 0.07627840790444337], "p_values": [0.002335174575452988, 0.9395824223212377, 0.6999445188615769, 0.2437756504547349], "cumulative": -0.16535821970806844, "r2": 0.8974232114487677, "dw": 0.1967275294617474}}};
+
+        const qtySelect = document.getElementById('qty-select');
+        const priceSelect = document.getElementById('price-select');
+
+        let lagChartInstance = null;
+        let trendChartInstance = null;
+
+        function updateDashboard() {
+            const qty = qtySelect.value;
+            const price = priceSelect.value;
+            const metrics = elasticities[qty][price];
+
+            // Update metric summary cards
+            document.getElementById('card-cumulative').innerText = metrics.cumulative.toFixed(4);
+            document.getElementById('card-lag0').innerText = metrics.lags_coef[0].toFixed(4);
+            document.getElementById('card-r2').innerText = metrics.r2.toFixed(3);
+            document.getElementById('card-dw').innerText = metrics.dw.toFixed(3);
+
+            // Write Interpretations
+            const relText = metrics.cumulative > 0 
+                ? "These goods exhibit a positive long-run cumulative XED, suggesting they behave as Substitutes. An increase in the price/revenue of the benchmark variable pushes demand up for this category overall."
+                : "These goods exhibit a negative long-run cumulative XED, behaving as Complementary services or products. Increases in the price/revenue benchmark dampens demand.";
+            document.getElementById('interpret-relation').innerText = relText;
+
+            const absCum = Math.abs(metrics.cumulative);
+            const strengthText = absCum > 1 
+                ? `Highly Elastic (${absCum.toFixed(2)}): Demand is extremely sensitive to changes in the independent metric.` 
+                : `Inelastic (${absCum.toFixed(2)}): Demand responds relatively weakly to changes in the independent metric.`;
+            document.getElementById('interpret-strength').innerText = strengthText;
+
+            const maxLagVal = Math.max(...metrics.lags_coef.map(Math.abs));
+            const peakLag = metrics.lags_coef.findIndex(v => Math.abs(v) === maxLagVal);
+            document.getElementById('interpret-lag').innerText = `The peak magnitude of impact occurs at Lag ${peakLag} (coefficient: ${metrics.lags_coef[peakLag].toFixed(4)}), implying that the effect takes roughly ${peakLag} quarters to completely manifest in demand dynamics.`;
+
+            // Chart 1: Lags Coefficient Chart
+            if (lagChartInstance) lagChartInstance.destroy();
+            const ctx1 = document.getElementById('lagChart').getContext('2d');
+            lagChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['Lag 0 (Short Run)', 'Lag 1', 'Lag 2', 'Lag 3'],
+                    datasets: [{
+                        label: 'Elasticity Coefficient',
+                        data: metrics.lags_coef,
+                        backgroundColor: metrics.lags_coef.map(v => v >= 0 ? 'rgba(59, 130, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
+                        borderColor: metrics.lags_coef.map(v => v >= 0 ? 'rgb(59, 130, 246)' : 'rgb(239, 68, 68)'),
+                        borderWidth: 1.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: 'Elasticity (% change in Q per 1% change in P)' },
+                            grid: { color: '#e5e7eb' }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Chart 2: Time Series Normalized Trend comparison
+            // Min-max normalization for clean visual comparison
+            const dates = dataset.map(row => row['Unnamed: 0'] || '');
+            const rawQty = dataset.map(row => row[qty] || 0);
+            const rawPrice = dataset.map(row => row[price] || 0);
+
+            const minQty = Math.min(...rawQty), maxQty = Math.max(...rawQty);
+            const minPrice = Math.min(...rawPrice), maxPrice = Math.max(...rawPrice);
+
+            const normQty = rawQty.map(v => (v - minQty) / (maxQty - minQty || 1));
+            const normPrice = rawPrice.map(v => (v - minPrice) / (maxPrice - minPrice || 1));
+
+            if (trendChartInstance) trendChartInstance.destroy();
+            const ctx2 = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: `Normalized Job Postings (Quantity: ${qty})`,
+                            data: normQty,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            tension: 0.2,
+                            fill: true
+                        },
+                        {
+                            label: `Normalized Price / Metric (Price: ${price})`,
+                            data: normPrice,
+                            borderColor: '#f97316',
+                            backgroundColor: 'transparent',
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { max: 1.1, min: -0.1, grid: { color: '#e5e7eb' }, title: { display: true, text: 'Normalized Value (0 to 1)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        qtySelect.addEventListener('change', updateDashboard);
+        priceSelect.addEventListener('change', updateDashboard);
+
+        // Init dashboard
+        updateDashboard();
+    </script>
+
+
+</div>
+</div>
+<div id="cell-5" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;colab&quot;,&quot;value&quot;:{&quot;base_uri&quot;:&quot;https://localhost:8080/&quot;,&quot;height&quot;:275}}" data-outputid="0da32f36-25d1-4ac1-90ee-c9a0eaadbeab" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> statsmodels.api <span class="im">as</span> sm</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Ensure clean dataset</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.read_csv(<span class="st">'/content/merged_time_series_data.csv'</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'nvidia_quarterly_revenue_clean'</span>] <span class="op">=</span> df[<span class="st">'nvidia_quarterly_revenue (millions)'</span>].astype(<span class="bu">str</span>).<span class="bu">str</span>.replace(<span class="st">'$'</span>, <span class="st">''</span>).<span class="bu">str</span>.replace(<span class="st">','</span>, <span class="st">''</span>).astype(<span class="bu">float</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df.dropna()</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>qty_cols <span class="op">=</span> [<span class="st">'overall_job_postings'</span>, <span class="st">'software_job_postings'</span>, <span class="st">'merged_job_postings_di'</span>]</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>price_cols <span class="op">=</span> [<span class="st">'ppi_data_processing_services'</span>, <span class="st">'nvidia_quarterly_revenue_clean'</span>]</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>summary_records <span class="op">=</span> []</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> qty <span class="kw">in</span> qty_cols:</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> price <span class="kw">in</span> price_cols:</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        temp_df <span class="op">=</span> df[[qty, price]].copy().dropna()</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        temp_df <span class="op">=</span> temp_df[(temp_df[qty] <span class="op">&gt;</span> <span class="dv">0</span>) <span class="op">&amp;</span> (temp_df[price] <span class="op">&gt;</span> <span class="dv">0</span>)]</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        temp_df[<span class="st">'log_qty'</span>] <span class="op">=</span> np.log(temp_df[qty])</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        temp_df[<span class="st">'log_price'</span>] <span class="op">=</span> np.log(temp_df[price])</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        lag_cols <span class="op">=</span> []</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> l <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">4</span>):</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>            col_name <span class="op">=</span> <span class="ss">f'log_price_lag_</span><span class="sc">{</span>l<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>            temp_df[col_name] <span class="op">=</span> temp_df[<span class="st">'log_price'</span>].shift(l)</span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            lag_cols.append(col_name)</span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        temp_df <span class="op">=</span> temp_df.dropna()</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        X <span class="op">=</span> temp_df[lag_cols]</span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        X <span class="op">=</span> sm.add_constant(X)</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>        y <span class="op">=</span> temp_df[<span class="st">'log_qty'</span>]</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>        model <span class="op">=</span> sm.OLS(y, X).fit()</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>        record <span class="op">=</span> {</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>            <span class="st">'quantity_variable'</span>: qty,</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>            <span class="st">'price_variable'</span>: price,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>            <span class="st">'r_squared'</span>: model.rsquared,</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>            <span class="st">'adj_r_squared'</span>: model.rsquared_adj,</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>            <span class="st">'durbin_watson'</span>: sm.stats.stattools.durbin_watson(model.resid),</span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>            <span class="st">'intercept_coef'</span>: model.params[<span class="st">'const'</span>],</span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_0_coef'</span>: model.params[<span class="st">'log_price_lag_0'</span>],</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_1_coef'</span>: model.params[<span class="st">'log_price_lag_1'</span>],</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_2_coef'</span>: model.params[<span class="st">'log_price_lag_2'</span>],</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_3_coef'</span>: model.params[<span class="st">'log_price_lag_3'</span>],</span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>            <span class="st">'cumulative_xed'</span>: <span class="bu">sum</span>(model.params[lag_cols]),</span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_0_pvalue'</span>: model.pvalues[<span class="st">'log_price_lag_0'</span>],</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_1_pvalue'</span>: model.pvalues[<span class="st">'log_price_lag_1'</span>],</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_2_pvalue'</span>: model.pvalues[<span class="st">'log_price_lag_2'</span>],</span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>            <span class="st">'lag_3_pvalue'</span>: model.pvalues[<span class="st">'log_price_lag_3'</span>]</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a>        summary_records.append(record)</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a><span class="co"># Create summary DataFrame and export to CSV</span></span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a>summary_df <span class="op">=</span> pd.DataFrame(summary_records)</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>export_path <span class="op">=</span> <span class="st">'/content/elasticity_summary_statistics.csv'</span></span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>summary_df.to_csv(export_path, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Summary statistics exported successfully to </span><span class="sc">{</span>export_path<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>display(summary_df)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Summary statistics exported successfully to /content/elasticity_summary_statistics.csv</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div id="df-0ed0da58-3788-4a86-9bfd-2a05a4407314" class="colab-df-container">
+    <div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">quantity_variable</th>
+<th data-quarto-table-cell-role="th">price_variable</th>
+<th data-quarto-table-cell-role="th">r_squared</th>
+<th data-quarto-table-cell-role="th">adj_r_squared</th>
+<th data-quarto-table-cell-role="th">durbin_watson</th>
+<th data-quarto-table-cell-role="th">intercept_coef</th>
+<th data-quarto-table-cell-role="th">lag_0_coef</th>
+<th data-quarto-table-cell-role="th">lag_1_coef</th>
+<th data-quarto-table-cell-role="th">lag_2_coef</th>
+<th data-quarto-table-cell-role="th">lag_3_coef</th>
+<th data-quarto-table-cell-role="th">cumulative_xed</th>
+<th data-quarto-table-cell-role="th">lag_0_pvalue</th>
+<th data-quarto-table-cell-role="th">lag_1_pvalue</th>
+<th data-quarto-table-cell-role="th">lag_2_pvalue</th>
+<th data-quarto-table-cell-role="th">lag_3_pvalue</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>overall_job_postings</td>
+<td>ppi_data_processing_services</td>
+<td>0.842123</td>
+<td>0.829978</td>
+<td>0.709993</td>
+<td>36.290330</td>
+<td>-2.206907</td>
+<td>-1.219162</td>
+<td>-1.352412</td>
+<td>-1.127329</td>
+<td>-5.905810</td>
+<td>0.088558</td>
+<td>0.440354</td>
+<td>0.398878</td>
+<td>0.401580</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>overall_job_postings</td>
+<td>nvidia_quarterly_revenue_clean</td>
+<td>0.869883</td>
+<td>0.859874</td>
+<td>0.798903</td>
+<td>9.867034</td>
+<td>-0.168866</td>
+<td>-0.069136</td>
+<td>0.006647</td>
+<td>0.066261</td>
+<td>-0.165094</td>
+<td>0.024080</td>
+<td>0.457669</td>
+<td>0.943218</td>
+<td>0.373460</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>software_job_postings</td>
+<td>ppi_data_processing_services</td>
+<td>0.653522</td>
+<td>0.626870</td>
+<td>0.086422</td>
+<td>79.828446</td>
+<td>-7.091654</td>
+<td>-4.782723</td>
+<td>-2.705039</td>
+<td>-0.544415</td>
+<td>-15.123831</td>
+<td>0.203192</td>
+<td>0.484046</td>
+<td>0.695817</td>
+<td>0.925173</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>software_job_postings</td>
+<td>nvidia_quarterly_revenue_clean</td>
+<td>0.711212</td>
+<td>0.688997</td>
+<td>0.186194</td>
+<td>11.896993</td>
+<td>-1.018994</td>
+<td>-0.070879</td>
+<td>-0.013445</td>
+<td>0.714316</td>
+<td>-0.389002</td>
+<td>0.002198</td>
+<td>0.860767</td>
+<td>0.973592</td>
+<td>0.030530</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>merged_job_postings_di</td>
+<td>ppi_data_processing_services</td>
+<td>0.872902</td>
+<td>0.863125</td>
+<td>0.167711</td>
+<td>33.042779</td>
+<td>-2.253242</td>
+<td>-0.903658</td>
+<td>-0.831355</td>
+<td>-1.953001</td>
+<td>-5.941255</td>
+<td>0.050687</td>
+<td>0.518156</td>
+<td>0.557550</td>
+<td>0.104152</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>merged_job_postings_di</td>
+<td>nvidia_quarterly_revenue_clean</td>
+<td>0.897423</td>
+<td>0.889533</td>
+<td>0.196728</td>
+<td>6.455584</td>
+<td>-0.203917</td>
+<td>-0.006169</td>
+<td>-0.031551</td>
+<td>0.076278</td>
+<td>-0.165358</td>
+<td>0.002335</td>
+<td>0.939582</td>
+<td>0.699945</td>
+<td>0.243776</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-0ed0da58-3788-4a86-9bfd-2a05a4407314')" title="Convert this dataframe to an interactive table." style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"></path>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-0ed0da58-3788-4a86-9bfd-2a05a4407314 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-0ed0da58-3788-4a86-9bfd-2a05a4407314');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+  <div id="id_0b4dda14-b467-4261-b53c-e83ae82b753e">
+    <style>
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
+      }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
+      }
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
+      }
+    </style>
+    <button class="colab-df-generate" onclick="generateWithVariable('summary_df')" title="Generate code using this dataframe." style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewbox="0 0 24 24" width="24px">
+    <path d="M7,19H8.4L18.45,9,17,7.55,7,17.6ZM5,21V16.75L18.45,3.32a2,2,0,0,1,2.83,0l1.4,1.43a1.91,1.91,0,0,1,.58,1.4,1.91,1.91,0,0,1-.58,1.4L9.25,21ZM18.45,9,17,7.55Zm-12,3A5.31,5.31,0,0,0,4.9,8.1,5.31,5.31,0,0,0,1,6.5,5.31,5.31,0,0,0,4.9,4.9,5.31,5.31,0,0,0,6.5,1,5.31,5.31,0,0,0,8.1,4.9,5.31,5.31,0,0,0,12,6.5,5.46,5.46,0,0,0,6.5,12Z"></path>
+  </svg>
+    </button>
+    <script>
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_0b4dda14-b467-4261-b53c-e83ae82b753e button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('summary_df');
+      }
+      })();
+    </script>
+  </div>
+
+    </div>
+  </div>
+</div>
+</div>
+
+
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/jarreaubarron-coder\.github\.io\/DS-Corp-Website\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
