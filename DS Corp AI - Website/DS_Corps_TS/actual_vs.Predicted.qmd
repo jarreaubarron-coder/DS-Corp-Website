@@ -1,0 +1,3765 @@
+---
+title: "Actual Vs. Predicted"
+author: "Dr. Purna Gamage"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+
+execute:
+  warning: false
+  error: false
+  message: false
+  
+editor: visual
+toc: true
+---
+
+# Data Munging
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+project_folder <- "/Users/purnagamage/Documents/GitHub/DS-Corps-Assessents"
+
+folder <- file.path(
+  project_folder,
+  "all_variables_needed"
+)
+
+week4_folder <- file.path(
+  project_folder,
+  "Week_4"
+)
+
+dir.create(
+  week4_folder,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+files <- c(
+  "AI_historical_data.csv",
+  "GOOGL_historical_data.csv",
+  "MSFT_historical_data.csv",
+  "NVDA_historical_data.csv",
+  "all_capex_ppi_daily_interpolated.csv",
+  "GT_jobs_int.csv",
+  "GT_skills_int.csv",
+  "indeed_data_analysis.csv",
+  "indeed-all.csv",
+  "indeed-software.csv"
+)
+
+read_file <- function(filename) {
+
+  data <- read_csv(
+    file.path(folder, filename),
+    show_col_types = FALSE
+  )
+
+  # Find the date column
+  date_col <- names(data)[
+    grepl("date|month|time", names(data), ignore.case = TRUE)
+  ][1]
+
+  if (is.na(date_col)) {
+    stop("No date column found in: ", filename)
+  }
+
+  # Convert the date
+  date_values <- as.character(data[[date_col]])
+
+  parsed_dates <- suppressWarnings(
+    as.Date(
+      parse_date_time(
+        date_values,
+        orders = c(
+          "ymd",
+          "mdy",
+          "dmy",
+          "ym",
+          "my",
+          "Ymd",
+          "bY",
+          "BY",
+          "bdy",
+          "Ymd HMS",
+          "ymd HMS"
+        )
+      )
+    )
+  )
+
+  if (all(is.na(parsed_dates))) {
+    stop(
+      "Dates could not be read in: ",
+      filename,
+      "\nFirst date values: ",
+      paste(head(date_values), collapse = ", ")
+    )
+  }
+
+  # Rename the date column
+  names(data)[names(data) == date_col] <- "Date"
+  data$Date <- parsed_dates
+
+  # Remove rows with missing dates
+  data <- data %>%
+    filter(!is.na(Date))
+
+  # Add filename to the other column names
+  file_name <- make.names(
+    tools::file_path_sans_ext(filename)
+  )
+
+  data %>%
+    rename_with(
+      ~ paste0(file_name, "_", .x),
+      -Date
+    )
+}
+
+# Load the files
+data_list <- lapply(files, read_file)
+
+# Find the common overlapping period
+common_start <- as.Date(
+  max(sapply(data_list, function(x) as.numeric(min(x$Date)))),
+  origin = "1970-01-01"
+)
+
+common_end <- as.Date(
+  min(sapply(data_list, function(x) as.numeric(max(x$Date)))),
+  origin = "1970-01-01"
+)
+
+# Combine all datasets by date
+combined_data <- reduce(
+  data_list,
+  full_join,
+  by = "Date"
+) %>%
+  filter(
+    Date >= common_start,
+    Date <= common_end
+  ) %>%
+  arrange(Date)
+```
+
+```{r}
+# Maximum CCF lag in days
+lag_max <- 36
+
+# ------------------------------------------------------------
+# Functions for selecting columns
+# ------------------------------------------------------------
+
+get_numeric_columns <- function(pattern) {
+  
+  columns <- grep(
+    pattern,
+    names(combined_data),
+    value = TRUE,
+    ignore.case = TRUE
+  )
+  
+  if (length(columns) == 0) {
+    return(character(0))
+  }
+  
+  numeric_columns <- vapply(
+    columns,
+    function(column_name) {
+      is.numeric(combined_data[[column_name]])
+    },
+    logical(1)
+  )
+  
+  return(columns[numeric_columns])
+}
+
+
+get_job_column <- function(pattern) {
+  
+  columns <- get_numeric_columns(pattern)
+  
+  if (length(columns) == 0) {
+    return(NA_character_)
+  }
+  
+  preferred <- columns[
+    grepl(
+      "main[._]?value|job.*opening|posting.*index|value",
+      columns,
+      ignore.case = TRUE
+    )
+  ]
+  
+  if (length(preferred) > 0) {
+    return(preferred[1])
+  }
+  
+  return(columns[1])
+}
+
+
+get_stock_column <- function(pattern) {
+  
+  columns <- get_numeric_columns(pattern)
+  
+  if (length(columns) == 0) {
+    return(NA_character_)
+  }
+  
+  # Prefer adjusted closing price
+  preferred <- columns[
+    grepl(
+      "adj.*close|adjusted.*close",
+      columns,
+      ignore.case = TRUE
+    )
+  ]
+  
+  # Otherwise use another closing-price column
+  if (length(preferred) == 0) {
+    preferred <- columns[
+      grepl(
+        "close",
+        columns,
+        ignore.case = TRUE
+      )
+    ]
+  }
+  
+  if (length(preferred) > 0) {
+    return(preferred[1])
+  }
+  
+  return(columns[1])
+}
+```
+
+```{r}
+job_columns <- c(
+  DA  = get_job_column("indeed_data_analysis"),
+  SW  = get_job_column("indeed.*software"),
+  ALL = get_job_column("indeed.*all")
+)
+
+stock_columns <- c(
+  MSFT  = get_stock_column("^MSFT_historical_data_"),
+  C3AI  = get_stock_column("^AI_historical_data_"),
+  NVDA  = get_stock_column("^NVDA_historical_data_"),
+  GOOGL = get_stock_column("^GOOGL_historical_data_")
+)
+
+```
+
+```{r}
+# ------------------------------------------------------------
+# 2. Select the three job-opening series
+# ------------------------------------------------------------
+
+job_columns <- c(
+  DA  = get_job_column("^indeed_data_analysis_"),
+  SW  = get_job_column("^indeed[.]software_"),
+  ALL = get_job_column("^indeed[.]all_")
+)
+
+# ------------------------------------------------------------
+# 3. Select all Google Trends variables
+# ------------------------------------------------------------
+
+gt_jobs_columns <- get_numeric_columns("^GT_jobs_int_")
+gt_skills_columns <- get_numeric_columns("^GT_skills_int_")
+
+google_columns <- c(
+  gt_jobs_columns,
+  gt_skills_columns
+)
+
+google_labels <- c(
+  paste0(
+    "GT Job: ",
+    sub("^GT_jobs_int_", "", gt_jobs_columns)
+  ),
+  paste0(
+    "GT Skill: ",
+    sub("^GT_skills_int_", "", gt_skills_columns)
+  )
+)
+
+names(google_columns) <- google_labels
+
+# ------------------------------------------------------------
+# 4. Select adjusted closing stock prices
+# ------------------------------------------------------------
+
+stock_columns <- c(
+  MSFT  = get_stock_column("^MSFT_historical_data_"),
+  C3AI  = get_stock_column("^AI_historical_data_"),
+  NVDA  = get_stock_column("^NVDA_historical_data_"),
+  GOOGL = get_stock_column("^GOOGL_historical_data_")
+)
+
+
+
+# ------------------------------------------------------------
+# 5. Select CAPEX and PPI variables
+# ------------------------------------------------------------
+
+capex_ppi_columns <- get_numeric_columns(
+  "^all_capex_ppi_daily_interpolated_"
+)
+
+names(capex_ppi_columns) <- sub(
+  "^all_capex_ppi_daily_interpolated_",
+  "",
+  capex_ppi_columns
+)
+
+# Put all predictor variables together
+predictor_columns <- c(
+  google_columns,
+  stock_columns,
+  capex_ppi_columns
+)
+
+predictor_groups <- c(
+  rep("Google Trends", length(google_columns)),
+  rep("Stock Prices", length(stock_columns)),
+  rep("CAPEX and PPI", length(capex_ppi_columns))
+)
+
+names(predictor_groups) <- names(predictor_columns)
+
+# Check the selected columns
+selected_columns <- data.frame(
+  Series = c(
+    paste0("Job Openings: ", names(job_columns)),
+    names(predictor_columns)
+  ),
+  Column = c(
+    unname(job_columns),
+    unname(predictor_columns)
+  )
+)
+
+#print(selected_columns)
+
+# Stop if any required column was not found
+if (any(is.na(job_columns))) {
+  stop("One or more job-opening columns could not be identified.")
+}
+
+if (any(is.na(predictor_columns))) {
+  stop("One or more predictor columns could not be identified.")
+}
+
+```
+
+```{r}
+
+# ------------------------------------------------------------
+# 6. Create one regularly spaced daily dataset
+# ------------------------------------------------------------
+
+needed_columns <- unique(
+  c(
+    "Date",
+    unname(job_columns),
+    unname(predictor_columns)
+  )
+)
+
+ccf_data <- combined_data[
+  ,
+  needed_columns,
+  drop = FALSE
+]
+
+ccf_data$Date <- as.Date(ccf_data$Date)
+
+# Average duplicate dates, if there are any
+ccf_data <- aggregate(
+  ccf_data[, -1, drop = FALSE],
+  by = list(Date = ccf_data$Date),
+  FUN = function(x) {
+    if (all(is.na(x))) {
+      NA_real_
+    } else {
+      mean(x, na.rm = TRUE)
+    }
+  }
+)
+
+# Create a complete daily date sequence
+daily_dates <- data.frame(
+  Date = seq(
+    min(ccf_data$Date),
+    max(ccf_data$Date),
+    by = "day"
+  )
+)
+
+ccf_data <- merge(
+  daily_dates,
+  ccf_data,
+  by = "Date",
+  all.x = TRUE
+)
+
+ccf_data <- ccf_data[
+  order(ccf_data$Date),
+]
+
+
+
+```
+
+# Job openings only
+
+## ARIMA. model
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of days to forecast
+forecast_horizon <- 36
+
+# Readable names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Fit separate univariate auto.arima models
+# ------------------------------------------------------------
+
+arima_models <- lapply(
+  names(job_columns),
+  function(job_name) {
+
+    column_name <- job_columns[[job_name]]
+
+    # Daily time series with weekly seasonality
+    y <- ts(
+      na.interp(combined_data[[column_name]]),
+      frequency = 7
+    )
+
+    auto.arima(
+      y,
+      seasonal = TRUE,
+      stepwise = FALSE,
+      approximation = FALSE
+    )
+  }
+)
+
+names(arima_models) <- names(job_columns)
+
+# ------------------------------------------------------------
+# 2. Forecast each series
+# ------------------------------------------------------------
+
+arima_forecasts <- lapply(
+  arima_models,
+  forecast,
+  h = forecast_horizon,
+  level = c(80, 95)
+)
+
+# ------------------------------------------------------------
+# 3. Prepare historical data
+# ------------------------------------------------------------
+
+historical_data <- bind_rows(
+  lapply(names(job_columns), function(job_name) {
+
+    tibble(
+      Date = combined_data$Date,
+      Value = combined_data[[job_columns[[job_name]]]],
+      Job_Type = job_labels[[job_name]]
+    )
+  })
+) %>%
+  drop_na(Value)
+
+# Future dates
+future_dates <- seq(
+  max(combined_data$Date) + 1,
+  by = "day",
+  length.out = forecast_horizon
+)
+
+# ------------------------------------------------------------
+# 4. Prepare forecast results
+# ------------------------------------------------------------
+
+forecast_data <- bind_rows(
+  lapply(names(arima_forecasts), function(job_name) {
+
+    fc <- arima_forecasts[[job_name]]
+
+    tibble(
+      Date = future_dates,
+      Forecast = as.numeric(fc$mean),
+      Lower_80 = as.numeric(fc$lower[, "80%"]),
+      Upper_80 = as.numeric(fc$upper[, "80%"]),
+      Lower_95 = as.numeric(fc$lower[, "95%"]),
+      Upper_95 = as.numeric(fc$upper[, "95%"]),
+      Job_Type = job_labels[[job_name]]
+    )
+  })
+)
+
+# ------------------------------------------------------------
+# 5. Plot historical values and forecasts
+# ------------------------------------------------------------
+
+arima_forecast_plot <- ggplot() +
+
+  geom_line(
+    data = historical_data,
+    aes(
+      x = Date,
+      y = Value
+    ),
+    linewidth = 0.7,
+    color = "#1F5A94"
+  ) +
+
+  geom_ribbon(
+    data = forecast_data,
+    aes(
+      x = Date,
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "#9ECAE1",
+    alpha = 0.35
+  ) +
+
+  geom_ribbon(
+    data = forecast_data,
+    aes(
+      x = Date,
+      ymin = Lower_80,
+      ymax = Upper_80
+    ),
+    fill = "#4292C6",
+    alpha = 0.40
+  ) +
+
+  geom_line(
+    data = forecast_data,
+    aes(
+      x = Date,
+      y = Forecast
+    ),
+    linewidth = 0.9,
+    color = "#B2182B"
+  ) +
+
+  geom_vline(
+    xintercept = max(combined_data$Date),
+    linetype = "dashed",
+    linewidth = 0.6,
+    color = "gray35"
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  labs(
+    title = "Univariate ARIMA Forecasts for Job Openings",
+    subtitle = paste0(
+      "Separate auto.arima models with ",
+      forecast_horizon,
+      "-day forecasts"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    caption = paste0(
+      "Red lines show forecasts. Dark and light shaded regions ",
+      "represent 80% and 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+arima_forecast_plot
+
+# ------------------------------------------------------------
+# 6. Display selected models
+# ------------------------------------------------------------
+
+arima_models$DA
+arima_models$SW
+arima_models$ALL
+```
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of observations used for testing
+test_horizon <- 36
+
+# Readable category names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+prediction_results <- list()
+arima_test_models <- list()
+
+for (job_name in names(job_columns)) {
+
+  job_column <- job_columns[[job_name]]
+
+  # Prepare the series
+  series_data <- combined_data %>%
+    select(
+      Date,
+      Value = all_of(job_column)
+    ) %>%
+    arrange(Date)
+
+  # Interpolate missing observations
+  full_series <- ts(
+    forecast::na.interp(series_data$Value),
+    frequency = 7
+  )
+
+  # Training and testing data
+  train_series <- head(
+    full_series,
+    -test_horizon
+  )
+
+  test_series <- tail(
+    full_series,
+    test_horizon
+  )
+
+  test_dates <- tail(
+    series_data$Date,
+    test_horizon
+  )
+
+  # Fit auto.arima using only the training data
+  model <- auto.arima(
+    train_series,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Predict the test period
+  prediction <- forecast(
+    model,
+    h = test_horizon,
+    level = c(80, 95)
+  )
+
+  # Save the model
+  arima_test_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  prediction_results[[job_name]] <- tibble(
+    Date = test_dates,
+    Actual = as.numeric(test_series),
+    Predicted = as.numeric(prediction$mean),
+    Lower_95 = as.numeric(prediction$lower[, "95%"]),
+    Upper_95 = as.numeric(prediction$upper[, "95%"]),
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# Combine the three results
+actual_prediction_data <- bind_rows(
+  prediction_results
+)
+
+# Plot actual versus predicted values
+actual_vs_prediction_plot <- ggplot(
+  actual_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  # Actual values
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_point(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    size = 1.5
+  ) +
+
+  # Predicted values
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+
+  geom_point(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    size = 1.5
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Univariate auto.arima predictions for the final ",
+      test_horizon,
+      " days"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    caption = paste0(
+      "Dashed red lines show predictions. ",
+      "Shaded areas represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+actual_vs_prediction_plot
+```
+
+## Prophet model
+
+```{r}
+library(tidyverse)
+library(prophet)
+
+# install.packages("prophet")  # Run once if Prophet is not installed
+
+# Number of final observations used as the test period
+test_horizon <- 36
+
+# Readable category names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+prophet_models <- list()
+prophet_predictions <- list()
+
+# ------------------------------------------------------------
+# Fit one Prophet model for each job-opening series
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  job_column <- job_columns[[job_name]]
+
+  # Prophet requires columns named ds and y
+  series_data <- combined_data %>%
+    transmute(
+      ds = as.Date(Date),
+      y = as.numeric(.data[[job_column]])
+    ) %>%
+    arrange(ds) %>%
+    filter(!is.na(y))
+
+  # Split into training and testing periods
+  train_data <- head(
+    series_data,
+    -test_horizon
+  )
+
+  test_data <- tail(
+    series_data,
+    test_horizon
+  )
+
+  # Fit the Prophet model using training data only
+  model <- prophet(
+    train_data,
+    daily.seasonality = FALSE,
+    weekly.seasonality = TRUE,
+    yearly.seasonality = TRUE,
+    interval.width = 0.95
+  )
+
+  # Predict the dates in the test period
+  test_forecast <- predict(
+    model,
+    test_data %>%
+      select(ds)
+  )
+
+  # Save fitted model
+  prophet_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  prophet_predictions[[job_name]] <- tibble(
+    Date = test_data$ds,
+    Actual = test_data$y,
+    Predicted = test_forecast$yhat,
+    Lower_95 = test_forecast$yhat_lower,
+    Upper_95 = test_forecast$yhat_upper,
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# Combine results from the three models
+prophet_actual_prediction_data <- bind_rows(
+  prophet_predictions
+)
+
+# ------------------------------------------------------------
+# Plot actual versus predicted values
+# ------------------------------------------------------------
+
+prophet_actual_vs_predicted_plot <- ggplot(
+  prophet_actual_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  # Actual values
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_point(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    size = 1.5
+  ) +
+
+  # Prophet predictions
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Prophet Prediction"
+    ),
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+
+  geom_point(
+    aes(
+      y = Predicted,
+      color = "Prophet Prediction"
+    ),
+    size = 1.5
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Prophet Prediction" = "#B2182B"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Prophet predictions for the final ",
+      test_horizon,
+      " observations"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    caption = paste0(
+      "Dashed red lines show Prophet predictions. ",
+      "Shaded regions show 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+prophet_actual_vs_predicted_plot
+
+
+```
+
+# ARIMAX: Regression + ARIMA errors
+
+## Job Openings Vs. Stock Market
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final days used for testing
+test_horizon <- 36
+
+# Readable job-opening labels
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening and stock-price data
+# ------------------------------------------------------------
+
+reg_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(stock_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename columns using the short object names
+names(reg_arima_data)[
+  match(unname(job_columns), names(reg_arima_data))
+] <- names(job_columns)
+
+names(reg_arima_data)[
+  match(unname(stock_columns), names(reg_arima_data))
+] <- names(stock_columns)
+
+# Convert variables to numeric and interpolate missing values
+reg_arima_data <- reg_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+# Stop if the test period is too large
+if (nrow(reg_arima_data) <= test_horizon + 36) {
+  stop("There are not enough observations for this test horizon.")
+}
+
+# Stock-price predictor names
+stock_predictors <- names(stock_columns)
+
+# ------------------------------------------------------------
+# 2. Fit regression plus ARIMA-error models
+# ------------------------------------------------------------
+
+reg_arima_models <- list()
+reg_arima_predictions <- list()
+
+for (job_name in names(job_columns)) {
+
+  number_observations <- nrow(reg_arima_data)
+  training_end <- number_observations - test_horizon
+
+  # Outcome series
+  y <- reg_arima_data[[job_name]]
+
+  # Stock-price regressors
+  xreg <- as.matrix(
+    reg_arima_data[
+      ,
+      stock_predictors,
+      drop = FALSE
+    ]
+  )
+
+  # Training and testing sets
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  y_test <- y[
+    (training_end + 1):number_observations
+  ]
+
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  xreg_test <- xreg[
+    (training_end + 1):number_observations,
+    ,
+    drop = FALSE
+  ]
+
+  test_dates <- reg_arima_data$Date[
+    (training_end + 1):number_observations
+  ]
+
+  # Regression with auto-selected ARIMA errors
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Predict the held-out period using its stock prices
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  # Save the model
+  reg_arima_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  reg_arima_predictions[[job_name]] <- tibble(
+    Date = test_dates,
+    Actual = as.numeric(y_test),
+    Predicted = as.numeric(prediction$mean),
+    Lower_95 = as.numeric(prediction$lower[, "95%"]),
+    Upper_95 = as.numeric(prediction$upper[, "95%"]),
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# Combine results
+reg_arima_prediction_data <- bind_rows(
+  reg_arima_predictions
+)
+
+# ------------------------------------------------------------
+# 3. Calculate test-set accuracy
+# ------------------------------------------------------------
+
+reg_arima_accuracy <- reg_arima_prediction_data %>%
+  group_by(Job_Type) %>%
+  summarise(
+    RMSE = sqrt(
+      mean((Actual - Predicted)^2)
+    ),
+    MAE = mean(
+      abs(Actual - Predicted)
+    ),
+    .groups = "drop"
+  )
+
+reg_arima_accuracy
+
+# ------------------------------------------------------------
+# 4. Plot actual versus predicted values
+# ------------------------------------------------------------
+
+reg_arima_actual_vs_predicted_plot <- ggplot(
+  reg_arima_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  # Actual values
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_point(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    size = 1.5
+  ) +
+
+  # Predicted values
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+
+  geom_point(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    size = 1.5
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Regression with auto-selected ARIMA errors using ",
+      "Microsoft, C3.ai, NVIDIA, and Alphabet stock prices"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    caption = paste0(
+      "The final ",
+      test_horizon,
+      " observations were used as the test period. ",
+      "Shaded regions represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+reg_arima_actual_vs_predicted_plot
+
+
+
+
+```
+
+
+
+```{r}
+
+reg_arima_prediction_data <- reg_arima_prediction_data %>%
+  mutate(
+    Job_Type = recode(
+      Job_Type,
+      "Data Analysis Job Openings" = "DA Job Openings",
+      "Software Development Job Openings" = "SW Job Openings",
+      "All Job Openings" = "All Job Openings"
+    ),
+
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+# ------------------------------------------------------------
+# 4. Plot actual versus predicted values — lines only
+# ------------------------------------------------------------
+
+reg_arima_actual_vs_predicted_plot <- ggplot(
+  reg_arima_prediction_data,
+  aes(x = Date)
+) +
+
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted",
+      linetype = "Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Regression with auto-selected ARIMA errors using ",
+      "Microsoft, C3.ai, NVIDIA, and Alphabet stock prices"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+    caption = paste0(
+      "The final ",
+      test_horizon,
+      " observations were used as the test period. ",
+      "Solid blue lines show actual values; dashed red lines show predictions. ",
+      "Shaded regions represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+reg_arima_actual_vs_predicted_plot
+```
+
+
+## Job Openings Vs. Google Trends
+
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final observations used for testing
+test_horizon <- 36
+
+# Short job-opening labels used in the plot
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening and Google Trends data
+# ------------------------------------------------------------
+
+google_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(google_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename job-opening columns as DA, SW, and ALL
+names(google_arima_data)[
+  match(
+    unname(job_columns),
+    names(google_arima_data)
+  )
+] <- names(job_columns)
+
+# Create safe names for Google Trends predictors
+google_predictor_names <- make.names(
+  names(google_columns),
+  unique = TRUE
+)
+
+# Rename Google Trends columns
+names(google_arima_data)[
+  match(
+    unname(google_columns),
+    names(google_arima_data)
+  )
+] <- google_predictor_names
+
+# Convert variables to numeric and interpolate missing values
+google_arima_data <- google_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+# Check that enough observations are available
+if (nrow(google_arima_data) <= test_horizon + 36) {
+  stop("There are not enough observations for the selected test period.")
+}
+
+# ------------------------------------------------------------
+# 2. Define training and testing periods
+# ------------------------------------------------------------
+
+n_observations <- nrow(google_arima_data)
+
+training_end <- n_observations - test_horizon
+
+# Create lists for models and predictions
+google_arima_models <- list()
+google_arima_predictions <- list()
+
+# ------------------------------------------------------------
+# 3. Fit regression models with ARIMA errors
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  # Job-opening outcome variable
+  y <- google_arima_data[[job_name]]
+
+  # Google Trends external regressors
+  xreg <- as.matrix(
+    google_arima_data[
+      ,
+      google_predictor_names,
+      drop = FALSE
+    ]
+  )
+
+  storage.mode(xreg) <- "double"
+
+  # Training outcome
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  # Test outcome
+  y_test <- y[
+    (training_end + 1):n_observations
+  ]
+
+  # Training regressors
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  # Test regressors
+  xreg_test <- xreg[
+    (training_end + 1):n_observations,
+    ,
+    drop = FALSE
+  ]
+
+  # Test-period dates
+  test_dates <- google_arima_data$Date[
+    (training_end + 1):n_observations
+  ]
+
+  # Fit regression with auto-selected ARIMA errors
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Predict the held-out test period
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  # Save model
+  google_arima_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  google_arima_predictions[[job_name]] <- tibble(
+    Date = test_dates,
+    Actual = as.numeric(y_test),
+    Predicted = as.numeric(prediction$mean),
+    Lower_95 = as.numeric(prediction$lower[, "95%"]),
+    Upper_95 = as.numeric(prediction$upper[, "95%"]),
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Combine prediction results
+# ------------------------------------------------------------
+
+google_arima_prediction_data <- bind_rows(
+  google_arima_predictions
+) %>%
+  mutate(
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+
+# ------------------------------------------------------------
+# 5. Calculate test-period accuracy
+# ------------------------------------------------------------
+
+google_arima_accuracy <- google_arima_prediction_data %>%
+  group_by(Job_Type) %>%
+  summarise(
+    RMSE = sqrt(
+      mean(
+        (Actual - Predicted)^2,
+        na.rm = TRUE
+      )
+    ),
+
+    MAE = mean(
+      abs(Actual - Predicted),
+      na.rm = TRUE
+    ),
+
+    MAPE = mean(
+      if_else(
+        Actual != 0,
+        abs((Actual - Predicted) / Actual),
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100,
+
+    .groups = "drop"
+  )
+
+google_arima_accuracy
+
+# ------------------------------------------------------------
+# 6. Plot actual versus predicted values
+# ------------------------------------------------------------
+
+google_arima_actual_vs_predicted_plot <- ggplot(
+  google_arima_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.30
+  ) +
+
+  # Actual values: solid blue line
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  # Predicted values: dashed red line
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted",
+      linetype = "Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+
+    subtitle = paste0(
+      "Regression with auto-selected ARIMA errors using ",
+      "Google Trends search-interest variables"
+    ),
+
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+
+    caption = paste0(
+      "The final ",
+      test_horizon,
+      " observations were used as the test period. ",
+      "Solid blue lines show actual values; dashed red lines show predictions. ",
+      "Shaded regions represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    legend.position = "bottom",
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+google_arima_actual_vs_predicted_plot
+
+
+
+```
+
+## Job openings Vs. CapEX+PPI
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final observations used for testing
+test_horizon <- 36
+
+# Short job-opening labels used in the plot
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening, CAPEX, and PPI data
+# ------------------------------------------------------------
+
+economic_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(capex_ppi_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename job-opening columns as DA, SW, and ALL
+names(economic_arima_data)[
+  match(
+    unname(job_columns),
+    names(economic_arima_data)
+  )
+] <- names(job_columns)
+
+# Create safe names for CAPEX and PPI predictors
+economic_predictor_names <- make.names(
+  names(capex_ppi_columns),
+  unique = TRUE
+)
+
+# Rename CAPEX and PPI columns
+names(economic_arima_data)[
+  match(
+    unname(capex_ppi_columns),
+    names(economic_arima_data)
+  )
+] <- economic_predictor_names
+
+# Convert variables to numeric and interpolate missing values
+economic_arima_data <- economic_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+# Check that enough observations are available
+if (nrow(economic_arima_data) <= test_horizon + 36) {
+  stop("There are not enough observations for the selected test period.")
+}
+
+# ------------------------------------------------------------
+# 2. Define training and testing periods
+# ------------------------------------------------------------
+
+n_observations <- nrow(economic_arima_data)
+
+training_end <- n_observations - test_horizon
+
+# Create lists for models and predictions
+economic_arima_models <- list()
+economic_arima_predictions <- list()
+
+# ------------------------------------------------------------
+# 3. Fit regression models with ARIMA errors
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  # Job-opening outcome variable
+  y <- economic_arima_data[[job_name]]
+
+  # CAPEX and PPI regressors
+  xreg <- as.matrix(
+    economic_arima_data[
+      ,
+      economic_predictor_names,
+      drop = FALSE
+    ]
+  )
+
+  storage.mode(xreg) <- "double"
+
+  # Training outcome
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  # Testing outcome
+  y_test <- y[
+    (training_end + 1):n_observations
+  ]
+
+  # Training regressors
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  # Testing regressors
+  xreg_test <- xreg[
+    (training_end + 1):n_observations,
+    ,
+    drop = FALSE
+  ]
+
+  # Testing dates
+  test_dates <- economic_arima_data$Date[
+    (training_end + 1):n_observations
+  ]
+
+  # Fit regression with auto-selected ARIMA errors
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Predict the testing period
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  # Save model
+  economic_arima_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  economic_arima_predictions[[job_name]] <- tibble(
+    Date = test_dates,
+    Actual = as.numeric(y_test),
+    Predicted = as.numeric(prediction$mean),
+    Lower_95 = as.numeric(prediction$lower[, "95%"]),
+    Upper_95 = as.numeric(prediction$upper[, "95%"]),
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Combine prediction results
+# ------------------------------------------------------------
+
+economic_arima_prediction_data <- bind_rows(
+  economic_arima_predictions
+) %>%
+  mutate(
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+
+# ------------------------------------------------------------
+# 5. Calculate test-period accuracy
+# ------------------------------------------------------------
+
+economic_arima_accuracy <- economic_arima_prediction_data %>%
+  group_by(Job_Type) %>%
+  summarise(
+    RMSE = sqrt(
+      mean(
+        (Actual - Predicted)^2,
+        na.rm = TRUE
+      )
+    ),
+
+    MAE = mean(
+      abs(Actual - Predicted),
+      na.rm = TRUE
+    ),
+
+    MAPE = mean(
+      if_else(
+        Actual != 0,
+        abs((Actual - Predicted) / Actual),
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100,
+
+    .groups = "drop"
+  )
+
+economic_arima_accuracy
+
+# ------------------------------------------------------------
+# 6. Plot actual versus predicted values
+# ------------------------------------------------------------
+
+economic_arima_actual_vs_predicted_plot <- ggplot(
+  economic_arima_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.30
+  ) +
+
+  # Actual values: solid blue line
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  # Predicted values: dashed red line
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted",
+      linetype = "Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+
+    subtitle = paste0(
+      "Regression with auto-selected ARIMA errors using ",
+      "CAPEX and the Producer Price Index"
+    ),
+
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+
+    caption = paste0(
+      "The final ",
+      test_horizon,
+      " observations were used as the test period. ",
+      "Solid blue lines show actual values; dashed red lines show predictions. ",
+      "Shaded regions represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    legend.position = "bottom",
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+economic_arima_actual_vs_predicted_plot
+
+
+
+
+
+```
+
+# Whole Plot
+
+## Job Openings Vs. Google Trends
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final observations used for testing
+test_horizon <- 36
+
+# Labels for the three job-opening series
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening and Google Trends data
+# ------------------------------------------------------------
+
+google_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(google_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename job-opening columns as DA, SW, ALL
+names(google_arima_data)[
+  match(unname(job_columns), names(google_arima_data))
+] <- names(job_columns)
+
+# Safe names for Google Trends predictors
+google_predictor_names <- make.names(
+  names(google_columns),
+  unique = TRUE
+)
+
+# Rename Google Trends columns
+names(google_arima_data)[
+  match(unname(google_columns), names(google_arima_data))
+] <- google_predictor_names
+
+# Convert to numeric and interpolate missing values
+google_arima_data <- google_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+if (nrow(google_arima_data) <= test_horizon + 30) {
+  stop("There are not enough observations for the selected test period.")
+}
+
+# ------------------------------------------------------------
+# 2. Fit Regression + ARIMA errors and keep fitted + forecasted
+# ------------------------------------------------------------
+
+n_observations <- nrow(google_arima_data)
+training_end <- n_observations - test_horizon
+
+google_arima_models <- list()
+google_arima_plot_data_list <- list()
+google_arima_accuracy_list <- list()
+
+for (job_name in names(job_columns)) {
+
+  # Outcome variable
+  y <- google_arima_data[[job_name]]
+
+  # External regressors
+  xreg <- as.matrix(
+    google_arima_data[
+      ,
+      google_predictor_names,
+      drop = FALSE
+    ]
+  )
+  storage.mode(xreg) <- "double"
+
+  # Train / test split
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  y_test <- y[
+    (training_end + 1):n_observations
+  ]
+
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  xreg_test <- xreg[
+    (training_end + 1):n_observations,
+    ,
+    drop = FALSE
+  ]
+
+  train_dates <- google_arima_data$Date[1:training_end]
+  test_dates  <- google_arima_data$Date[(training_end + 1):n_observations]
+
+  # Fit model
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Training fitted values
+  fitted_values <- as.numeric(fitted(model))
+
+  # Test forecasts
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  forecast_values <- as.numeric(prediction$mean)
+
+  # Save model
+  google_arima_models[[job_name]] <- model
+
+  # Whole-period plotting data:
+  # training = fitted values
+  # testing  = forecasted values
+  google_arima_plot_data_list[[job_name]] <- bind_rows(
+    tibble(
+      Date = train_dates,
+      Actual = as.numeric(y[1:training_end]),
+      Predicted = fitted_values,
+      Period = "Training",
+      Job_Type = job_labels[[job_name]]
+    ),
+    tibble(
+      Date = test_dates,
+      Actual = as.numeric(y_test),
+      Predicted = forecast_values,
+      Period = "Test",
+      Job_Type = job_labels[[job_name]]
+    )
+  )
+
+  # Accuracy only on test period
+  google_arima_accuracy_list[[job_name]] <- tibble(
+    Job_Type = job_labels[[job_name]],
+    RMSE = sqrt(mean((y_test - forecast_values)^2, na.rm = TRUE)),
+    MAE  = mean(abs(y_test - forecast_values), na.rm = TRUE),
+    MAPE = mean(ifelse(y_test != 0,
+                       abs((y_test - forecast_values) / y_test),
+                       NA_real_), na.rm = TRUE) * 100
+  )
+}
+
+# Combine all data
+google_arima_plot_data <- bind_rows(google_arima_plot_data_list) %>%
+  mutate(
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+
+google_arima_accuracy <- bind_rows(google_arima_accuracy_list)
+google_arima_accuracy
+
+# ------------------------------------------------------------
+# 3. Plot whole-series Actual vs Fitted/Predicted
+# ------------------------------------------------------------
+
+google_arima_whole_plot <- ggplot(
+  google_arima_plot_data,
+  aes(x = Date)
+) +
+
+  # Actual whole series
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  # Fitted + predicted whole series
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Fitted / Predicted",
+      linetype = "Fitted / Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  # Vertical line where test period begins
+  geom_vline(
+    xintercept = google_arima_data$Date[training_end + 1],
+    color = "gray40",
+    linetype = "dotted",
+    linewidth = 0.7
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "black",
+      "Fitted / Predicted" = "#D95F02"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Fitted / Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Fitted/Predicted Job Openings",
+    subtitle = "Regression with ARIMA errors using Google Trends search-interest variables",
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+    caption = paste0(
+      "Solid black lines show actual values. Dashed orange lines show fitted values ",
+      "in the training period and forecasts in the test period. ",
+      "The dotted vertical line marks the start of the test period."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "top",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+google_arima_whole_plot
+
+ggsave(
+  filename = file.path(
+    week4_folder,
+    "Regression_ARIMA_Google_Trends_Whole_Actual_vs_Predicted.png"
+  ),
+  plot = google_arima_whole_plot,
+  width = 13,
+  height = 10,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+```
+
+## JO VS. Stocks
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final observations used for testing
+test_horizon <- 36
+
+# Short job-opening labels
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening and stock-price data
+# ------------------------------------------------------------
+
+stock_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(stock_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename job-opening columns as DA, SW, and ALL
+names(stock_arima_data)[
+  match(
+    unname(job_columns),
+    names(stock_arima_data)
+  )
+] <- names(job_columns)
+
+# Create safe names for stock-price predictors
+stock_predictor_names <- make.names(
+  names(stock_columns),
+  unique = TRUE
+)
+
+# Rename stock-price columns
+names(stock_arima_data)[
+  match(
+    unname(stock_columns),
+    names(stock_arima_data)
+  )
+] <- stock_predictor_names
+
+# Convert variables to numeric and interpolate missing values
+stock_arima_data <- stock_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+# Check that enough observations are available
+if (nrow(stock_arima_data) <= test_horizon + 30) {
+  stop("There are not enough observations for the selected test period.")
+}
+
+# ------------------------------------------------------------
+# 2. Define training and testing periods
+# ------------------------------------------------------------
+
+n_observations <- nrow(stock_arima_data)
+
+training_end <- n_observations - test_horizon
+
+stock_arima_models <- list()
+stock_arima_plot_data_list <- list()
+stock_arima_accuracy_list <- list()
+
+# ------------------------------------------------------------
+# 3. Fit Regression + ARIMA-error models
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  # Job-opening outcome
+  y <- stock_arima_data[[job_name]]
+
+  # Stock-price regressors
+  xreg <- as.matrix(
+    stock_arima_data[
+      ,
+      stock_predictor_names,
+      drop = FALSE
+    ]
+  )
+
+  storage.mode(xreg) <- "double"
+
+  # Training outcome
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  # Testing outcome
+  y_test <- y[
+    (training_end + 1):n_observations
+  ]
+
+  # Training regressors
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  # Testing regressors
+  xreg_test <- xreg[
+    (training_end + 1):n_observations,
+    ,
+    drop = FALSE
+  ]
+
+  # Training and testing dates
+  train_dates <- stock_arima_data$Date[
+    1:training_end
+  ]
+
+  test_dates <- stock_arima_data$Date[
+    (training_end + 1):n_observations
+  ]
+
+  # Fit regression with auto-selected ARIMA errors
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Fitted values for the training period
+  fitted_values <- as.numeric(
+    fitted(model)
+  )
+
+  # Predictions for the testing period
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  predicted_values <- as.numeric(
+    prediction$mean
+  )
+
+  # Save the fitted model
+  stock_arima_models[[job_name]] <- model
+
+  # Combine training fitted values and test predictions
+  stock_arima_plot_data_list[[job_name]] <- bind_rows(
+
+    # Training period
+    tibble(
+      Date = train_dates,
+      Actual = as.numeric(
+        y[1:training_end]
+      ),
+      Fitted_Predicted = fitted_values,
+      Period = "Training",
+      Job_Type = job_labels[[job_name]]
+    ),
+
+    # Testing period
+    tibble(
+      Date = test_dates,
+      Actual = as.numeric(y_test),
+      Fitted_Predicted = predicted_values,
+      Period = "Test",
+      Job_Type = job_labels[[job_name]]
+    )
+  )
+
+  # Test-set accuracy
+  stock_arima_accuracy_list[[job_name]] <- tibble(
+    Job_Type = job_labels[[job_name]],
+
+    RMSE = sqrt(
+      mean(
+        (y_test - predicted_values)^2,
+        na.rm = TRUE
+      )
+    ),
+
+    MAE = mean(
+      abs(y_test - predicted_values),
+      na.rm = TRUE
+    ),
+
+    MAPE = mean(
+      ifelse(
+        y_test != 0,
+        abs(
+          (y_test - predicted_values) / y_test
+        ),
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Combine results
+# ------------------------------------------------------------
+
+stock_arima_plot_data <- bind_rows(
+  stock_arima_plot_data_list
+) %>%
+  mutate(
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+
+stock_arima_accuracy <- bind_rows(
+  stock_arima_accuracy_list
+)
+
+stock_arima_accuracy
+
+# Date where the testing period begins
+test_start_date <- stock_arima_data$Date[
+  training_end + 1
+]
+
+# ------------------------------------------------------------
+# 5. Plot whole-series actual vs fitted/predicted
+# ------------------------------------------------------------
+
+stock_arima_whole_plot <- ggplot(
+  stock_arima_plot_data,
+  aes(x = Date)
+) +
+
+  # Actual values over the entire period
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  # Training fitted values and test predictions
+  geom_line(
+    aes(
+      y = Fitted_Predicted,
+      color = "Fitted / Predicted",
+      linetype = "Fitted / Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  # Beginning of the test period
+  geom_vline(
+    xintercept = test_start_date,
+    color = "gray40",
+    linetype = "dotted",
+    linewidth = 0.7
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "black",
+      "Fitted / Predicted" = "#D95F02"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Fitted / Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Fitted/Predicted Job Openings",
+
+    subtitle = paste0(
+      "Regression with ARIMA errors using ",
+      "Microsoft, C3.ai, NVIDIA, and Alphabet stock prices"
+    ),
+
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+
+    caption = paste0(
+      "Solid black lines show actual values. ",
+      "Dashed orange lines show fitted values in the training period ",
+      "and predictions in the test period. ",
+      "The dotted vertical line marks the start of the test period."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    legend.position = "top",
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+stock_arima_whole_plot
+
+# ------------------------------------------------------------
+# 6. Display selected models
+# ------------------------------------------------------------
+
+stock_arima_models$DA
+stock_arima_models$SW
+stock_arima_models$ALL
+
+# ------------------------------------------------------------
+# 7. Save the plot
+# ------------------------------------------------------------
+
+ggsave(
+  filename = file.path(
+    week4_folder,
+    "Regression_ARIMA_Stocks_Whole_Actual_vs_Predicted.png"
+  ),
+  plot = stock_arima_whole_plot,
+  width = 13,
+  height = 10,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+## JO Vs. CAPEX
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of final observations used for testing
+test_horizon <- 36
+
+# Short job-opening labels
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Prepare job-opening, CAPEX, and PPI data
+# ------------------------------------------------------------
+
+economic_arima_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(job_columns)),
+    all_of(unname(capex_ppi_columns))
+  ) %>%
+  arrange(Date)
+
+# Rename job-opening columns as DA, SW, and ALL
+names(economic_arima_data)[
+  match(
+    unname(job_columns),
+    names(economic_arima_data)
+  )
+] <- names(job_columns)
+
+# Create safe predictor names for CAPEX and PPI
+economic_predictor_names <- make.names(
+  names(capex_ppi_columns),
+  unique = TRUE
+)
+
+# Rename CAPEX and PPI columns
+names(economic_arima_data)[
+  match(
+    unname(capex_ppi_columns),
+    names(economic_arima_data)
+  )
+] <- economic_predictor_names
+
+# Convert variables to numeric and interpolate missing values
+economic_arima_data <- economic_arima_data %>%
+  mutate(
+    across(
+      -Date,
+      ~ forecast::na.interp(as.numeric(.x))
+    )
+  )
+
+# Check that enough observations are available
+if (nrow(economic_arima_data) <= test_horizon + 30) {
+  stop("There are not enough observations for the selected test period.")
+}
+
+# ------------------------------------------------------------
+# 2. Define training and testing periods
+# ------------------------------------------------------------
+
+n_observations <- nrow(economic_arima_data)
+
+training_end <- n_observations - test_horizon
+
+economic_arima_models <- list()
+economic_arima_plot_data_list <- list()
+economic_arima_accuracy_list <- list()
+
+# ------------------------------------------------------------
+# 3. Fit Regression + ARIMA-error models
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  # Job-opening outcome
+  y <- economic_arima_data[[job_name]]
+
+  # CAPEX and PPI regressors
+  xreg <- as.matrix(
+    economic_arima_data[
+      ,
+      economic_predictor_names,
+      drop = FALSE
+    ]
+  )
+
+  storage.mode(xreg) <- "double"
+
+  # Training outcome
+  y_train <- ts(
+    y[1:training_end],
+    frequency = 7
+  )
+
+  # Testing outcome
+  y_test <- y[
+    (training_end + 1):n_observations
+  ]
+
+  # Training regressors
+  xreg_train <- xreg[
+    1:training_end,
+    ,
+    drop = FALSE
+  ]
+
+  # Testing regressors
+  xreg_test <- xreg[
+    (training_end + 1):n_observations,
+    ,
+    drop = FALSE
+  ]
+
+  # Training and testing dates
+  train_dates <- economic_arima_data$Date[
+    1:training_end
+  ]
+
+  test_dates <- economic_arima_data$Date[
+    (training_end + 1):n_observations
+  ]
+
+  # Fit regression with auto-selected ARIMA errors
+  model <- auto.arima(
+    y_train,
+    xreg = xreg_train,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Fitted values for the training period
+  fitted_values <- as.numeric(
+    fitted(model)
+  )
+
+  # Predictions for the testing period
+  prediction <- forecast(
+    model,
+    xreg = xreg_test,
+    h = test_horizon,
+    level = 95
+  )
+
+  predicted_values <- as.numeric(
+    prediction$mean
+  )
+
+  # Save fitted model
+  economic_arima_models[[job_name]] <- model
+
+  # Combine training fitted values and test predictions
+  economic_arima_plot_data_list[[job_name]] <- bind_rows(
+
+    # Training period
+    tibble(
+      Date = train_dates,
+      Actual = as.numeric(
+        y[1:training_end]
+      ),
+      Fitted_Predicted = fitted_values,
+      Period = "Training",
+      Job_Type = job_labels[[job_name]]
+    ),
+
+    # Testing period
+    tibble(
+      Date = test_dates,
+      Actual = as.numeric(y_test),
+      Fitted_Predicted = predicted_values,
+      Period = "Test",
+      Job_Type = job_labels[[job_name]]
+    )
+  )
+
+  # Test-period accuracy
+  economic_arima_accuracy_list[[job_name]] <- tibble(
+    Job_Type = job_labels[[job_name]],
+
+    RMSE = sqrt(
+      mean(
+        (y_test - predicted_values)^2,
+        na.rm = TRUE
+      )
+    ),
+
+    MAE = mean(
+      abs(y_test - predicted_values),
+      na.rm = TRUE
+    ),
+
+    MAPE = mean(
+      ifelse(
+        y_test != 0,
+        abs(
+          (y_test - predicted_values) / y_test
+        ),
+        NA_real_
+      ),
+      na.rm = TRUE
+    ) * 100
+  )
+}
+
+# ------------------------------------------------------------
+# 4. Combine results
+# ------------------------------------------------------------
+
+economic_arima_plot_data <- bind_rows(
+  economic_arima_plot_data_list
+) %>%
+  mutate(
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  )
+
+economic_arima_accuracy <- bind_rows(
+  economic_arima_accuracy_list
+)
+
+economic_arima_accuracy
+
+# Date where testing begins
+test_start_date <- economic_arima_data$Date[
+  training_end + 1
+]
+
+# ------------------------------------------------------------
+# 5. Plot whole-series actual vs fitted/predicted
+# ------------------------------------------------------------
+
+economic_arima_whole_plot <- ggplot(
+  economic_arima_plot_data,
+  aes(x = Date)
+) +
+
+  # Actual values over the entire period
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual",
+      linetype = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  # Training fitted values and test predictions
+  geom_line(
+    aes(
+      y = Fitted_Predicted,
+      color = "Fitted / Predicted",
+      linetype = "Fitted / Predicted"
+    ),
+    linewidth = 1
+  ) +
+
+  # Beginning of test period
+  geom_vline(
+    xintercept = test_start_date,
+    color = "gray40",
+    linetype = "dotted",
+    linewidth = 0.7
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "black",
+      "Fitted / Predicted" = "#D95F02"
+    )
+  ) +
+
+  scale_linetype_manual(
+    values = c(
+      "Actual" = "solid",
+      "Fitted / Predicted" = "dashed"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Fitted/Predicted Job Openings",
+
+    subtitle = paste0(
+      "Regression with ARIMA errors using ",
+      "CAPEX and the Producer Price Index"
+    ),
+
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    linetype = NULL,
+
+    caption = paste0(
+      "Solid black lines show actual values. ",
+      "Dashed orange lines show fitted values in the training period ",
+      "and predictions in the test period. ",
+      "The dotted vertical line marks the start of the test period."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 11
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    legend.position = "top",
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+economic_arima_whole_plot
+
+# ------------------------------------------------------------
+# 6. Display selected models
+# ------------------------------------------------------------
+
+economic_arima_models$DA
+economic_arima_models$SW
+economic_arima_models$ALL
+
+# ------------------------------------------------------------
+# 7. Save the plot
+# ------------------------------------------------------------
+
+ggsave(
+  filename = file.path(
+    week4_folder,
+    "Regression_ARIMA_CAPEX_PPI_Whole_Actual_vs_Predicted.png"
+  ),
+  plot = economic_arima_whole_plot,
+  width = 13,
+  height = 10,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+# 3 models
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# ------------------------------------------------------------
+# Function to extract the ARIMA/SARIMA order
+# ------------------------------------------------------------
+
+extract_arima_model <- function(model, predictor_group, job_name) {
+
+  model_order <- forecast::arimaorder(model)
+
+  p <- unname(model_order[1])
+  d <- unname(model_order[2])
+  q <- unname(model_order[3])
+
+  # Seasonal orders are zero when auto.arima selects
+  # a nonseasonal error structure
+  P <- if (length(model_order) >= 6) unname(model_order[4]) else 0
+  D <- if (length(model_order) >= 6) unname(model_order[5]) else 0
+  Q <- if (length(model_order) >= 6) unname(model_order[6]) else 0
+
+  seasonal_period <- 7
+
+  model_label <- if (P == 0 && D == 0 && Q == 0) {
+
+    paste0(
+      "Regression + ARIMA(",
+      p, ",", d, ",", q,
+      ") errors"
+    )
+
+  } else {
+
+    paste0(
+      "Regression + SARIMA(",
+      p, ",", d, ",", q,
+      ")(",
+      P, ",", D, ",", Q,
+      ")[", seasonal_period, "] errors"
+    )
+  }
+
+  tibble(
+    Predictor_Group = predictor_group,
+
+    Job_Openings = recode(
+      job_name,
+      "DA"  = "DA Job Openings",
+      "SW"  = "SW Job Openings",
+      "ALL" = "All Job Openings",
+      .default = job_name
+    ),
+
+    p = p,
+    d = d,
+    q = q,
+    P = P,
+    D = D,
+    Q = Q,
+    Seasonal_Period = seasonal_period,
+    Selected_Model = model_label,
+
+    AICc = if (
+      is.null(model$aicc)
+    ) {
+      NA_real_
+    } else {
+      model$aicc
+    }
+  )
+}
+
+# ------------------------------------------------------------
+# Combine the three sets of models
+# ------------------------------------------------------------
+
+model_sets <- list(
+  "Stock Prices" = stock_arima_models,
+  "Google Trends" = google_arima_models,
+  "CAPEX + PPI" = economic_arima_models
+)
+
+sarima_model_summary <- purrr::imap_dfr(
+  model_sets,
+  function(models, predictor_group) {
+
+    purrr::imap_dfr(
+      models,
+      function(model, job_name) {
+
+        extract_arima_model(
+          model = model,
+          predictor_group = predictor_group,
+          job_name = job_name
+        )
+      }
+    )
+  }
+)
+
+# Order the table
+sarima_model_summary <- sarima_model_summary %>%
+  mutate(
+    Predictor_Group = factor(
+      Predictor_Group,
+      levels = c(
+        "Stock Prices",
+        "Google Trends",
+        "CAPEX + PPI"
+      )
+    ),
+
+    Job_Openings = factor(
+      Job_Openings,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  ) %>%
+  arrange(
+    Predictor_Group,
+    Job_Openings
+  )
+
+# Display selected models
+sarima_model_summary %>%
+  select(
+    Predictor_Group,
+    Job_Openings,
+    Selected_Model,
+    AICc
+  )
+```
+```{r}
+# Stock-price models
+summary(stock_arima_models$DA)
+summary(stock_arima_models$SW)
+summary(stock_arima_models$ALL)
+
+# Google Trends models
+summary(google_arima_models$DA)
+summary(google_arima_models$SW)
+summary(google_arima_models$ALL)
+
+# CAPEX + PPI models
+summary(economic_arima_models$DA)
+summary(economic_arima_models$SW)
+summary(economic_arima_models$ALL)
+```
+
+```{r}
+library(tidyverse)
+
+# ------------------------------------------------------------
+# Function to extract the exact model description
+# ------------------------------------------------------------
+
+extract_model_description <- function(model) {
+
+  model_output <- capture.output(
+    print(model)
+  )
+
+  model_line <- model_output[
+    grepl(
+      "Regression with ARIMA|ARIMA\\(",
+      model_output
+    )
+  ][1]
+
+  trimws(model_line)
+}
+
+# ------------------------------------------------------------
+# Create table for all nine models
+# ------------------------------------------------------------
+
+selected_arima_models <- bind_rows(
+
+  # Stock-price models
+  purrr::imap_dfr(
+    stock_arima_models,
+    function(model, job_name) {
+
+      tibble(
+        Predictor_Group = "Stock Prices",
+        Job_Openings = job_name,
+        Selected_Model = extract_model_description(model)
+      )
+    }
+  ),
+
+  # Google Trends models
+  purrr::imap_dfr(
+    google_arima_models,
+    function(model, job_name) {
+
+      tibble(
+        Predictor_Group = "Google Trends",
+        Job_Openings = job_name,
+        Selected_Model = extract_model_description(model)
+      )
+    }
+  ),
+
+  # CAPEX and PPI models
+  purrr::imap_dfr(
+    economic_arima_models,
+    function(model, job_name) {
+
+      tibble(
+        Predictor_Group = "CAPEX + PPI",
+        Job_Openings = job_name,
+        Selected_Model = extract_model_description(model)
+      )
+    }
+  )
+) %>%
+
+  # Add readable job-opening labels
+  mutate(
+    Job_Openings = recode(
+      Job_Openings,
+      "ALL" = "All Job Openings",
+      "DA"  = "DA Job Openings",
+      "SW"  = "SW Job Openings"
+    ),
+
+    Predictor_Group = factor(
+      Predictor_Group,
+      levels = c(
+        "Stock Prices",
+        "Google Trends",
+        "CAPEX + PPI"
+      )
+    ),
+
+    Job_Openings = factor(
+      Job_Openings,
+      levels = c(
+        "All Job Openings",
+        "DA Job Openings",
+        "SW Job Openings"
+      )
+    )
+  ) %>%
+
+  arrange(
+    Predictor_Group,
+    Job_Openings
+  )
+
+# Display the table
+selected_arima_models
+```
+```{r}
+selected_arima_models %>%
+  knitr::kable(
+    col.names = c(
+      "Predictor Group",
+      "Job Openings",
+      "Selected Regression + ARIMA Error Model"
+    ),
+    caption = "Selected Regression Models with ARIMA Errors",
+    align = c("l", "l", "l")
+  )
+```
+
+# Traditional Vs. DL
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+compare_dm <- function(
+  arima_data,
+  dl_data,
+  dl_model_name,
+  forecast_horizon = 1
+) {
+
+  comparison_data <- arima_data %>%
+    select(
+      Date,
+      Job_Type,
+      Actual,
+      ARIMA_Predicted = Predicted
+    ) %>%
+    inner_join(
+      dl_data %>%
+        select(
+          Date,
+          Job_Type,
+          DL_Predicted = Predicted
+        ),
+      by = c(
+        "Date",
+        "Job_Type"
+      )
+    ) %>%
+    drop_na(
+      Actual,
+      ARIMA_Predicted,
+      DL_Predicted
+    )
+
+  comparison_results <- comparison_data %>%
+    group_by(Job_Type) %>%
+    group_modify(
+      ~ {
+
+        arima_errors <- .x$Actual - .x$ARIMA_Predicted
+        dl_errors <- .x$Actual - .x$DL_Predicted
+
+        dm_result <- forecast::dm.test(
+          e1 = arima_errors,
+          e2 = dl_errors,
+          alternative = "two.sided",
+          h = forecast_horizon,
+          power = 2
+        )
+
+        arima_rmse <- sqrt(
+          mean(arima_errors^2)
+        )
+
+        dl_rmse <- sqrt(
+          mean(dl_errors^2)
+        )
+
+        mean_loss_difference <- mean(
+          arima_errors^2 - dl_errors^2
+        )
+
+        tibble(
+          DL_Model = dl_model_name,
+          N = length(arima_errors),
+          ARIMA_RMSE = arima_rmse,
+          DL_RMSE = dl_rmse,
+          Mean_Loss_Difference = mean_loss_difference,
+          DM_Statistic = unname(dm_result$statistic),
+          P_Value = dm_result$p.value,
+          Better_Model = case_when(
+            mean_loss_difference < 0 ~
+              "Regression + ARIMA errors",
+            mean_loss_difference > 0 ~
+              dl_model_name,
+            TRUE ~ "Equal"
+          ),
+          Significant = if_else(
+            dm_result$p.value < 0.05,
+            "Yes",
+            "No"
+          )
+        )
+      }
+    ) %>%
+    ungroup()
+
+  comparison_results
+}
+```
+
+## Compare against RNN, LSTM, and GRU
+
+```{r}
+library(tidyverse)
+
+dl_stock_predictions <- read_csv(
+  "/Users/purnagamage/Documents/GitHub/DS-Corps-Assessents/stock_DL_DA_predictions.csv"
+) %>%
+  mutate(
+    Date = as.Date(Date)
+  )
+
+dl_stock_predictions
+```
+Important check
+
+```{r}
+# Traditional Regression + ARIMA predictions for DA
+traditional_stock_predictions <- reg_arima_prediction_data %>%
+  filter(
+    Job_Type == "DA Job Openings"
+  ) %>%
+  select(
+    Date,
+    Traditional_Actual = Actual,
+    Traditional_Predicted = Predicted
+  )
+
+# Check matching dates
+date_comparison <- traditional_stock_predictions %>%
+  full_join(
+    dl_stock_predictions %>%
+      distinct(
+        Date,
+        Job_Type
+      ),
+    by = "Date"
+  )
+
+date_comparison
+
+
+```
+```{r}
+traditional_stock_predictions %>%
+  inner_join(
+    dl_stock_predictions %>%
+      distinct(Date),
+    by = "Date"
+  ) %>%
+  summarise(
+    Matching_Dates = n(),
+    First_Date = min(Date),
+    Last_Date = max(Date)
+  )
+```
+
+
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# ------------------------------------------------------------
+# 1. Load the stock-based deep-learning predictions
+# ------------------------------------------------------------
+
+dl_stock_predictions <- read_csv(
+  "/Users/purnagamage/Documents/GitHub/DS-Corps-Assessents/stock_DL_DA_predictions.csv"
+) %>%
+  mutate(
+    Date = as.Date(Date)
+  ) %>%
+  filter(
+    Job_Type == "DA Job Openings",
+    Model %in% c(
+      "SimpleRNN",
+      "LSTM",
+      "GRU"
+    )
+  )
+
+# ------------------------------------------------------------
+# 2. Select only the stock-based SARIMAX predictions
+# ------------------------------------------------------------
+
+sarimax_stock_predictions <- reg_arima_prediction_data %>%
+  filter(
+    Job_Type == "DA Job Openings"
+  ) %>%
+  select(
+    Date,
+    Job_Type,
+    SARIMAX_Actual = Actual,
+    SARIMAX_Predicted = Predicted
+  )
+
+# ------------------------------------------------------------
+# 3. Match SARIMAX and DL predictions by date
+# ------------------------------------------------------------
+
+stock_dm_data <- dl_stock_predictions %>%
+  select(
+    Date,
+    Job_Type,
+    Model,
+    DL_Actual = Actual,
+    DL_Predicted = Predicted
+  ) %>%
+  inner_join(
+    sarimax_stock_predictions,
+    by = c(
+      "Date",
+      "Job_Type"
+    )
+  ) %>%
+  arrange(
+    Model,
+    Date
+  )
+
+# Check the number of matched dates
+stock_dm_data %>%
+  count(Model)
+```
+
+
+```{r}
+actual_check <- stock_dm_data %>%
+  summarise(
+    Maximum_Actual_Difference = max(
+      abs(DL_Actual - SARIMAX_Actual),
+      na.rm = TRUE
+    )
+  )
+
+actual_check
+```
+```{r}
+stock_dm_results <- stock_dm_data %>%
+  group_by(Model) %>%
+  group_modify(
+    ~ {
+
+      # Paired forecast errors
+      sarimax_errors <-
+        .x$SARIMAX_Actual -
+        .x$SARIMAX_Predicted
+
+      dl_errors <-
+        .x$DL_Actual -
+        .x$DL_Predicted
+
+      # Diebold-Mariano test
+      dm_result <- forecast::dm.test(
+        e1 = sarimax_errors,
+        e2 = dl_errors,
+        alternative = "two.sided",
+        h = 1,
+        power = 2
+      )
+
+      # Accuracy measures
+      sarimax_rmse <- sqrt(
+        mean(
+          sarimax_errors^2,
+          na.rm = TRUE
+        )
+      )
+
+      dl_rmse <- sqrt(
+        mean(
+          dl_errors^2,
+          na.rm = TRUE
+        )
+      )
+
+      sarimax_mae <- mean(
+        abs(sarimax_errors),
+        na.rm = TRUE
+      )
+
+      dl_mae <- mean(
+        abs(dl_errors),
+        na.rm = TRUE
+      )
+
+      # SARIMAX squared loss minus DL squared loss
+      mean_loss_difference <- mean(
+        sarimax_errors^2 -
+          dl_errors^2,
+        na.rm = TRUE
+      )
+
+      tibble(
+        N = length(sarimax_errors),
+
+        SARIMAX_RMSE = sarimax_rmse,
+        DL_RMSE = dl_rmse,
+
+        SARIMAX_MAE = sarimax_mae,
+        DL_MAE = dl_mae,
+
+        Mean_Loss_Difference =
+          mean_loss_difference,
+
+        DM_Statistic = unname(
+          dm_result$statistic
+        ),
+
+        P_Value = dm_result$p.value,
+
+        Lower_Loss_Model = case_when(
+          mean_loss_difference < 0 ~
+            "SARIMAX",
+
+          mean_loss_difference > 0 ~
+            .y$Model[[1]],
+
+          TRUE ~ "Equal"
+        ),
+
+        Significant = if_else(
+          dm_result$p.value < 0.05,
+          "Yes",
+          "No"
+        )
+      )
+    }
+  ) %>%
+  ungroup()
+
+stock_dm_results
+```
+
+```{r}
+stock_dm_table <- stock_dm_results %>%
+  mutate(
+    across(
+      c(
+        SARIMAX_RMSE,
+        DL_RMSE,
+        SARIMAX_MAE,
+        DL_MAE,
+        Mean_Loss_Difference
+      ),
+      ~ round(.x, 4)
+    ),
+
+    DM_Statistic = round(
+      DM_Statistic,
+      3
+    ),
+
+    `p-value` = format.pval(
+      P_Value,
+      digits = 3,
+      eps = 0.001
+    )
+  ) %>%
+  select(
+    Job_Openings = Model,
+    N,
+    SARIMAX_RMSE,
+    DL_RMSE,
+    SARIMAX_MAE,
+    DL_MAE,
+    DM_Statistic,
+    `p-value`,
+    Lower_Loss_Model,
+    Significant
+  ) %>%
+  rename(
+    `DL Model` = Job_Openings
+  )
+
+stock_dm_table
+```
+```{r}
+stock_dm_table %>%
+  knitr::kable(
+    caption = paste0(
+      "Diebold–Mariano Comparison of Stock-Based SARIMAX ",
+      "and Deep-Learning Models for DA Job Openings"
+    ),
+    col.names = c(
+      "DL Model",
+      "N",
+      "SARIMAX RMSE",
+      "DL RMSE",
+      "SARIMAX MAE",
+      "DL MAE",
+      "DM Statistic",
+      "p-value",
+      "Lower-Loss Model",
+      "Significant"
+    ),
+    align = c(
+      "l", "r", "r", "r", "r",
+      "r", "r", "r", "l", "c"
+    )
+  )
+```
+

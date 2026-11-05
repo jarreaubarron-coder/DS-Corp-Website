@@ -1,0 +1,15 @@
+{
+  "hash": "614322fc80d9f1b0334bee7c580e3227",
+  "result": {
+    "engine": "knitr",
+    "markdown": "---\ntitle: \"DS Corps Research Portfolio\"\nsubtitle: \"Week 1: GitHub Setup + Introduction Page\"\nformat:\n  html:\n    toc: true\n    toc-depth: 3\n---\n\n# Overview\n\nOver the next several weeks, you will build an individual research portfolio based on the work we completed during DS Corps.\n\nWe will add new sections every other week, so **for now, please focus only on setting up your GitHub portfolio and completing the Introduction page**.\n\nAlthough everyone worked on the same overall research project, your portfolio should reflect **your own perspective and your own way of telling the story**.\n\nThe goal is not for everyone to produce the same portfolio. The analysis may overlap because we worked on the same project, but the way you introduce the problem, explain its importance, select visuals, and tell the story should reflect your own perspective.\n\n---\n\n# What I Expect This Week\n\nBy our next meeting, please have the following completed:\n\n1. A GitHub repository created.\n2. The repository cloned to your computer using GitHub Desktop.\n3. Your work committed and pushed to GitHub.\n4. The repository URL ready to share.\n5. An Introduction page containing:\n   - background and real-world motivation;\n   - your individual perspective or story;\n   - an overview of the research problem;\n   - research questions;\n   - a brief overview of the analytical approach;\n   - a separate literature review section;\n   - at least one meaningful visual;\n   - a caption for your visual.\n\nDo **not** worry about completing the rest of the portfolio yet.\n\nWe will build the portfolio together in stages.---\ntitle: \"Jarreau-Website\"\n---\n\nThis is a Quarto website.\n\nTo learn more about Quarto websites visit <https://quarto.org/docs/websites>.\n\n\n::: {.cell}\n\n```{.r .cell-code}\n1 + 1\n```\n\n::: {.cell-output .cell-output-stdout}\n\n```\n[1] 2\n```\n\n\n:::\n:::\n\n",
+    "supporting": [],
+    "filters": [
+      "rmarkdown/pagebreak.lua"
+    ],
+    "includes": {},
+    "engineDependencies": {},
+    "preserve": {},
+    "postProcess": true
+  }
+}

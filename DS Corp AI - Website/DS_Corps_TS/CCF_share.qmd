@@ -1,0 +1,4086 @@
+---
+title: "CCF-Cross Correlation Function"
+author: "Dr. Purna Gamage"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+
+execute:
+  warning: false
+  error: false
+  message: false
+  
+editor: visual
+toc: true
+---
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+project_folder <- "/Users/purnagamage/Documents/GitHub/DS-Corps-Assessents"
+
+folder <- file.path(
+  project_folder,
+  "all_variables_needed"
+)
+
+week4_folder <- file.path(
+  project_folder,
+  "Week_4"
+)
+
+dir.create(
+  week4_folder,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+files <- c(
+  "AI_historical_data.csv",
+  "GOOGL_historical_data.csv",
+  "MSFT_historical_data.csv",
+  "NVDA_historical_data.csv",
+  "all_capex_ppi_daily_interpolated.csv",
+  "GT_jobs_int.csv",
+  "GT_skills_int.csv",
+  "indeed_data_analysis.csv",
+  "indeed-all.csv",
+  "indeed-software.csv"
+)
+
+read_file <- function(filename) {
+
+  data <- read_csv(
+    file.path(folder, filename),
+    show_col_types = FALSE
+  )
+
+  # Find the date column
+  date_col <- names(data)[
+    grepl("date|month|time", names(data), ignore.case = TRUE)
+  ][1]
+
+  if (is.na(date_col)) {
+    stop("No date column found in: ", filename)
+  }
+
+  # Convert the date
+  date_values <- as.character(data[[date_col]])
+
+  parsed_dates <- suppressWarnings(
+    as.Date(
+      parse_date_time(
+        date_values,
+        orders = c(
+          "ymd",
+          "mdy",
+          "dmy",
+          "ym",
+          "my",
+          "Ymd",
+          "bY",
+          "BY",
+          "bdy",
+          "Ymd HMS",
+          "ymd HMS"
+        )
+      )
+    )
+  )
+
+  if (all(is.na(parsed_dates))) {
+    stop(
+      "Dates could not be read in: ",
+      filename,
+      "\nFirst date values: ",
+      paste(head(date_values), collapse = ", ")
+    )
+  }
+
+  # Rename the date column
+  names(data)[names(data) == date_col] <- "Date"
+  data$Date <- parsed_dates
+
+  # Remove rows with missing dates
+  data <- data %>%
+    filter(!is.na(Date))
+
+  # Add filename to the other column names
+  file_name <- make.names(
+    tools::file_path_sans_ext(filename)
+  )
+
+  data %>%
+    rename_with(
+      ~ paste0(file_name, "_", .x),
+      -Date
+    )
+}
+
+# Load the files
+data_list <- lapply(files, read_file)
+
+# Find the common overlapping period
+common_start <- as.Date(
+  max(sapply(data_list, function(x) as.numeric(min(x$Date)))),
+  origin = "1970-01-01"
+)
+
+common_end <- as.Date(
+  min(sapply(data_list, function(x) as.numeric(max(x$Date)))),
+  origin = "1970-01-01"
+)
+
+# Combine all datasets by date
+combined_data <- reduce(
+  data_list,
+  full_join,
+  by = "Date"
+) %>%
+  filter(
+    Date >= common_start,
+    Date <= common_end
+  ) %>%
+  arrange(Date)
+
+# Check the result
+range(combined_data$Date)
+dim(combined_data)
+```
+
+```{r}
+# Maximum CCF lag in days
+lag_max <- 30
+
+# ------------------------------------------------------------
+# Functions for selecting columns
+# ------------------------------------------------------------
+
+get_numeric_columns <- function(pattern) {
+  
+  columns <- grep(
+    pattern,
+    names(combined_data),
+    value = TRUE,
+    ignore.case = TRUE
+  )
+  
+  if (length(columns) == 0) {
+    return(character(0))
+  }
+  
+  numeric_columns <- vapply(
+    columns,
+    function(column_name) {
+      is.numeric(combined_data[[column_name]])
+    },
+    logical(1)
+  )
+  
+  return(columns[numeric_columns])
+}
+
+
+get_job_column <- function(pattern) {
+  
+  columns <- get_numeric_columns(pattern)
+  
+  if (length(columns) == 0) {
+    return(NA_character_)
+  }
+  
+  preferred <- columns[
+    grepl(
+      "main[._]?value|job.*opening|posting.*index|value",
+      columns,
+      ignore.case = TRUE
+    )
+  ]
+  
+  if (length(preferred) > 0) {
+    return(preferred[1])
+  }
+  
+  return(columns[1])
+}
+
+
+get_stock_column <- function(pattern) {
+  
+  columns <- get_numeric_columns(pattern)
+  
+  if (length(columns) == 0) {
+    return(NA_character_)
+  }
+  
+  # Prefer adjusted closing price
+  preferred <- columns[
+    grepl(
+      "adj.*close|adjusted.*close",
+      columns,
+      ignore.case = TRUE
+    )
+  ]
+  
+  # Otherwise use another closing-price column
+  if (length(preferred) == 0) {
+    preferred <- columns[
+      grepl(
+        "close",
+        columns,
+        ignore.case = TRUE
+      )
+    ]
+  }
+  
+  if (length(preferred) > 0) {
+    return(preferred[1])
+  }
+  
+  return(columns[1])
+}
+```
+
+```{r}
+job_columns <- c(
+  DA  = get_job_column("indeed_data_analysis"),
+  SW  = get_job_column("indeed.*software"),
+  ALL = get_job_column("indeed.*all")
+)
+
+stock_columns <- c(
+  MSFT  = get_stock_column("^MSFT_historical_data_"),
+  C3AI  = get_stock_column("^AI_historical_data_"),
+  NVDA  = get_stock_column("^NVDA_historical_data_"),
+  GOOGL = get_stock_column("^GOOGL_historical_data_")
+)
+
+
+
+stock_columns
+
+job_columns
+
+```
+
+
+```{r}
+# ------------------------------------------------------------
+# 2. Select the three job-opening series
+# ------------------------------------------------------------
+
+job_columns <- c(
+  DA  = get_job_column("^indeed_data_analysis_"),
+  SW  = get_job_column("^indeed[.]software_"),
+  ALL = get_job_column("^indeed[.]all_")
+)
+
+# ------------------------------------------------------------
+# 3. Select all Google Trends variables
+# ------------------------------------------------------------
+
+gt_jobs_columns <- get_numeric_columns("^GT_jobs_int_")
+gt_skills_columns <- get_numeric_columns("^GT_skills_int_")
+
+google_columns <- c(
+  gt_jobs_columns,
+  gt_skills_columns
+)
+
+google_labels <- c(
+  paste0(
+    "GT Job: ",
+    sub("^GT_jobs_int_", "", gt_jobs_columns)
+  ),
+  paste0(
+    "GT Skill: ",
+    sub("^GT_skills_int_", "", gt_skills_columns)
+  )
+)
+
+names(google_columns) <- google_labels
+
+# ------------------------------------------------------------
+# 4. Select adjusted closing stock prices
+# ------------------------------------------------------------
+
+stock_columns <- c(
+  MSFT  = get_stock_column("^MSFT_historical_data_"),
+  C3AI  = get_stock_column("^AI_historical_data_"),
+  NVDA  = get_stock_column("^NVDA_historical_data_"),
+  GOOGL = get_stock_column("^GOOGL_historical_data_")
+)
+
+stock_columns
+
+# ------------------------------------------------------------
+# 5. Select CAPEX and PPI variables
+# ------------------------------------------------------------
+
+capex_ppi_columns <- get_numeric_columns(
+  "^all_capex_ppi_daily_interpolated_"
+)
+
+names(capex_ppi_columns) <- sub(
+  "^all_capex_ppi_daily_interpolated_",
+  "",
+  capex_ppi_columns
+)
+
+# Put all predictor variables together
+predictor_columns <- c(
+  google_columns,
+  stock_columns,
+  capex_ppi_columns
+)
+
+predictor_groups <- c(
+  rep("Google Trends", length(google_columns)),
+  rep("Stock Prices", length(stock_columns)),
+  rep("CAPEX and PPI", length(capex_ppi_columns))
+)
+
+names(predictor_groups) <- names(predictor_columns)
+
+# Check the selected columns
+selected_columns <- data.frame(
+  Series = c(
+    paste0("Job Openings: ", names(job_columns)),
+    names(predictor_columns)
+  ),
+  Column = c(
+    unname(job_columns),
+    unname(predictor_columns)
+  )
+)
+
+print(selected_columns)
+
+# Stop if any required column was not found
+if (any(is.na(job_columns))) {
+  stop("One or more job-opening columns could not be identified.")
+}
+
+if (any(is.na(predictor_columns))) {
+  stop("One or more predictor columns could not be identified.")
+}
+
+```
+
+
+```{r}
+
+# ------------------------------------------------------------
+# 6. Create one regularly spaced daily dataset
+# ------------------------------------------------------------
+
+needed_columns <- unique(
+  c(
+    "Date",
+    unname(job_columns),
+    unname(predictor_columns)
+  )
+)
+
+ccf_data <- combined_data[
+  ,
+  needed_columns,
+  drop = FALSE
+]
+
+ccf_data$Date <- as.Date(ccf_data$Date)
+
+# Average duplicate dates, if there are any
+ccf_data <- aggregate(
+  ccf_data[, -1, drop = FALSE],
+  by = list(Date = ccf_data$Date),
+  FUN = function(x) {
+    if (all(is.na(x))) {
+      NA_real_
+    } else {
+      mean(x, na.rm = TRUE)
+    }
+  }
+)
+
+# Create a complete daily date sequence
+daily_dates <- data.frame(
+  Date = seq(
+    min(ccf_data$Date),
+    max(ccf_data$Date),
+    by = "day"
+  )
+)
+
+ccf_data <- merge(
+  daily_dates,
+  ccf_data,
+  by = "Date",
+  all.x = TRUE
+)
+
+ccf_data <- ccf_data[
+  order(ccf_data$Date),
+]
+
+# Interpolate missing internal daily values
+interpolate_daily <- function(x, dates) {
+  
+  available <- !is.na(x)
+  
+  if (sum(available) < 2) {
+    return(x)
+  }
+  
+  approx(
+    x = as.numeric(dates[available]),
+    y = x[available],
+    xout = as.numeric(dates),
+    rule = 1
+  )$y
+}
+
+for (column in setdiff(names(ccf_data), "Date")) {
+  
+  ccf_data[[column]] <- interpolate_daily(
+    ccf_data[[column]],
+    ccf_data$Date
+  )
+}
+
+# ------------------------------------------------------------
+# 7. Calculate all CCF values and create all CCF plots
+# ------------------------------------------------------------
+
+ccf_results <- list()
+result_number <- 1
+
+pdf(
+  file.path(week4_folder, "CCF_all_plots.pdf"),
+  width = 10,
+  height = 7
+)
+
+for (job_name in names(job_columns)) {
+  
+  job_column <- job_columns[[job_name]]
+  
+  for (predictor_name in names(predictor_columns)) {
+    
+    predictor_column <- predictor_columns[[predictor_name]]
+    
+    pair_data <- ccf_data[
+      complete.cases(
+        ccf_data[, c(job_column, predictor_column)]
+      ),
+      c(job_column, predictor_column),
+      drop = FALSE
+    ]
+    
+    job_values <- pair_data[[job_column]]
+    predictor_values <- pair_data[[predictor_column]]
+    
+    if (
+      length(job_values) > lag_max + 2 &&
+      sd(job_values) > 0 &&
+      sd(predictor_values) > 0
+    ) {
+      
+      ccf_object <- ccf(
+        job_values,
+        predictor_values,
+        lag.max = lag_max,
+        plot = TRUE,
+        main = paste(
+          job_name,
+          "Job Openings vs",
+          predictor_name
+        ),
+        xlab = "Lag in days"
+      )
+      
+      ccf_results[[result_number]] <- data.frame(
+        Category = predictor_groups[[predictor_name]],
+        Job_Openings = job_name,
+        Predictor = predictor_name,
+        Lag = as.numeric(ccf_object$lag),
+        CCF = as.numeric(ccf_object$acf),
+        N = length(job_values),
+        Approx_95_Bound = 1.96 / sqrt(length(job_values))
+      )
+      
+      result_number <- result_number + 1
+    }
+  }
+}
+
+dev.off()
+
+# ------------------------------------------------------------
+# 8. Combine all CCF values into one table
+# ------------------------------------------------------------
+
+ccf_values <- do.call(
+  rbind,
+  ccf_results
+)
+
+ccf_values$Significant <- abs(ccf_values$CCF) >
+  ccf_values$Approx_95_Bound
+
+# Find the strongest absolute CCF for each comparison
+comparison_groups <- interaction(
+  ccf_values$Job_Openings,
+  ccf_values$Predictor,
+  drop = TRUE
+)
+
+ccf_peak_values <- do.call(
+  rbind,
+  lapply(
+    split(ccf_values, comparison_groups),
+    function(x) {
+      x[which.max(abs(x$CCF)), ]
+    }
+  )
+)
+
+rownames(ccf_peak_values) <- NULL
+
+# Interpretation of the lag direction
+ccf_peak_values$Lag_Interpretation <- ifelse(
+  ccf_peak_values$Lag > 0,
+  "Predictor leads job openings",
+  ifelse(
+    ccf_peak_values$Lag < 0,
+    "Job openings lead predictor",
+    "Same-day relationship"
+  )
+)
+
+# Sort the peak results
+ccf_peak_values <- ccf_peak_values[
+  order(
+    ccf_peak_values$Category,
+    ccf_peak_values$Job_Openings,
+    -abs(ccf_peak_values$CCF)
+  ),
+]
+
+# ------------------------------------------------------------
+# 9. Save and view the results
+# ------------------------------------------------------------
+
+write.csv(
+  ccf_values,
+  file.path(week4_folder, "CCF_all_values.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  ccf_peak_values,
+  file.path(week4_folder, "CCF_peak_values.csv"),
+  row.names = FALSE
+)
+
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# ------------------------------------------------------------
+# 1. Prepare Google Trends CCF results
+# ------------------------------------------------------------
+
+google_ccf <- ccf_values %>%
+  filter(Category == "Google Trends") %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      "ALL" = "All Job Openings",
+      .default = Job_Openings
+    ),
+    
+    Trend_Type = ifelse(
+      grepl("GT Job", Predictor),
+      "Job-title search",
+      "Skill search"
+    ),
+    
+    Search_Term = Predictor %>%
+      sub("^GT Job: ", "", .) %>%
+      sub("^GT Skill: ", "", .) %>%
+      gsub("_", " ", .) %>%
+      gsub("\\.", " ", .)
+  )
+
+# Create approximate 95% bounds if they are not already present
+if (!"Approx_95_Bound" %in% names(google_ccf)) {
+  google_ccf <- google_ccf %>%
+    mutate(Approx_95_Bound = 1.96 / sqrt(N))
+}
+```
+
+
+```{r}
+library(tidyverse)
+
+# Main project folder
+project_folder <- "/Users/purnagamage/Documents/GitHub/DS-Corps-Assessents"
+
+# Folder for saving Google Trends CCF plots
+plot_folder <- file.path(
+  project_folder,
+  "Week_4",
+  "CCF_Google_Trends_Plots"
+)
+
+dir.create(
+  plot_folder,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+# Job-opening categories
+job_types <- unique(google_ccf$Job_Type)
+
+for (job in job_types) {
+
+  plot_data <- google_ccf %>%
+    filter(Job_Type == job)
+
+  confidence_bounds <- plot_data %>%
+    distinct(
+      Search_Term,
+      Approx_95_Bound
+    )
+
+  ccf_plot <- ggplot(
+    plot_data,
+    aes(x = Lag, y = CCF)
+  ) +
+
+    # Zero line
+    geom_hline(
+      yintercept = 0,
+      linewidth = 0.4
+    ) +
+
+    # Confidence limits
+    geom_hline(
+      data = confidence_bounds,
+      aes(yintercept = Approx_95_Bound),
+      linetype = "dashed",
+      linewidth = 0.5,
+      color = "steelblue"
+    ) +
+
+    geom_hline(
+      data = confidence_bounds,
+      aes(yintercept = -Approx_95_Bound),
+      linetype = "dashed",
+      linewidth = 0.5,
+      color = "steelblue"
+    ) +
+
+    # CCF lines
+    geom_segment(
+      aes(
+        xend = Lag,
+        y = 0,
+        yend = CCF
+      ),
+      linewidth = 0.5,
+      color = "gray35"
+    ) +
+
+    facet_wrap(
+      ~ Search_Term,
+      ncol = 3
+    ) +
+
+    scale_x_continuous(
+      breaks = seq(
+        min(plot_data$Lag),
+        max(plot_data$Lag),
+        by = 10
+      )
+    ) +
+
+    labs(
+      title = paste(
+        "Cross-Correlation:",
+        job,
+        "vs Google Search Interest"
+      ),
+      subtitle = paste(
+        "Positive lags indicate that Google search interest",
+        "leads job openings"
+      ),
+      x = "Lag in days",
+      y = "Cross-correlation coefficient",
+      caption = "Dashed lines show approximate 95% confidence limits."
+    ) +
+
+    theme_minimal(base_size = 12) +
+
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 17
+      ),
+      plot.subtitle = element_text(
+        size = 11
+      ),
+      strip.text = element_text(
+        face = "bold",
+        size = 10
+      ),
+      panel.grid.minor = element_blank(),
+      panel.spacing = grid::unit(1, "lines"),
+      plot.caption = element_text(
+        hjust = 0,
+        face = "italic"
+      )
+    )
+
+  # Display the plot
+  print(ccf_plot)
+
+  # Create a safe filename
+  file_name <- paste0(
+    "CCF_",
+    gsub("[^A-Za-z0-9]+", "_", job),
+    "_vs_Google_Trends.png"
+  )
+
+  # Save the plot
+  ggsave(
+    filename = file.path(plot_folder, file_name),
+    plot = ccf_plot,
+    width = 13,
+    height = 9,
+    dpi = 300
+  )
+}
+```
+
+
+
+
+```{r}
+
+
+ccf_heatmap <- ggplot(
+  google_ccf,
+  aes(
+    x = Lag,
+    y = Search_Term,
+    fill = CCF
+  )
+) +
+  
+  geom_tile() +
+  
+  facet_wrap(
+    ~ Job_Type,
+    ncol = 1,
+    scales = "free_y"
+  ) +
+  
+  scale_fill_gradient2(
+    low = "#2166AC",
+    mid = "white",
+    high = "#B2182B",
+    midpoint = 0,
+    limits = c(-1, 1),
+    name = "CCF"
+  ) +
+  
+  scale_x_continuous(
+    breaks = seq(
+      min(google_ccf$Lag),
+      max(google_ccf$Lag),
+      by = 5
+    )
+  ) +
+  
+  labs(
+    title = "Cross-Correlation Between Job Openings and Google Search Interest",
+    subtitle = paste0(
+      "CCF values across lags; positive lags indicate that ",
+      "Google search interest leads job openings"
+    ),
+    x = "Lag in days",
+    y = "Google Trends search term",
+    caption = paste0(
+      "Red indicates positive cross-correlation; ",
+      "blue indicates negative cross-correlation."
+    )
+  ) +
+  
+  theme_minimal(base_size = 12) +
+  
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 17
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 12
+    ),
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 9),
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+ccf_heatmap
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+# Use a symmetric color range based on the observed CCF values
+color_limit <- max(abs(google_ccf$CCF), na.rm = TRUE)
+
+ccf_heatmap <- ggplot(
+  google_ccf,
+  aes(
+    x = Lag,
+    y = Search_Term,
+    fill = CCF
+  )
+) +
+  geom_tile() +
+
+  facet_wrap(
+    ~ Job_Type,
+    ncol = 1,
+    scales = "free_y"
+  ) +
+
+  scale_fill_gradient2(
+    low = "#542788",
+    mid = "#F7F7F7",
+    high = "#E66101",
+    midpoint = 0,
+    limits = c(-color_limit, color_limit),
+    oob = squish,
+    name = "CCF"
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(
+      min(google_ccf$Lag),
+      max(google_ccf$Lag),
+      by = 5
+    )
+  ) +
+
+  labs(
+    title = "Cross-Correlation Between Job Openings and Google Search Interest",
+    subtitle = paste0(
+      "Positive lags indicate that Google search interest leads ",
+      "job openings"
+    ),
+    x = "Lag in days",
+    y = "Google Trends search term",
+    caption = paste0(
+      "Purple indicates negative cross-correlation; ",
+      "orange indicates positive cross-correlation."
+    )
+  ) +
+
+  theme_minimal(base_size = 13) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 12
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 13
+    ),
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+ccf_heatmap
+```
+```{r}
+ccf_heatmap_values <- ggplot(
+  google_ccf,
+  aes(
+    x = Lag,
+    y = Search_Term,
+    fill = CCF
+  )
+) +
+  geom_tile() +
+
+  geom_text(
+    aes(label = sprintf("%.2f", CCF)),
+    size = 2.5
+  ) +
+
+  facet_wrap(
+    ~ Job_Type,
+    ncol = 1,
+    scales = "free_y"
+  ) +
+
+  scale_fill_gradient2(
+    low = "#542788",
+    mid = "#F7F7F7",
+    high = "#E66101",
+    midpoint = 0,
+    limits = c(-color_limit, color_limit),
+    oob = squish,
+    name = "CCF"
+  ) +
+
+  labs(
+    title = "Cross-Correlation of Job Openings and Google Search Interest",
+    subtitle = "CCF values shown for each lag",
+    x = "Lag in days",
+    y = "Google Trends search term",
+    caption = "Positive lags indicate that Google search interest leads job openings."
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(face = "bold", size = 17),
+    strip.text = element_text(face = "bold", size = 12),
+    panel.grid = element_blank()
+  )
+
+ccf_heatmap_values
+```
+
+
+```{r}
+google_ccf %>%
+  group_by(Job_Type, Search_Term) %>%
+  summarise(
+    Minimum_CCF = min(CCF, na.rm = TRUE),
+    Maximum_CCF = max(CCF, na.rm = TRUE),
+    Strongest_CCF = CCF[which.max(abs(CCF))],
+    Strongest_Lag = Lag[which.max(abs(CCF))],
+    .groups = "drop"
+  )
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+# Prepare labels
+heatmap_data <- google_ccf %>%
+  mutate(
+    Comparison = paste(Job_Type, Search_Term, sep = " — ")
+  )
+
+heatmap_data$Comparison <- factor(
+  heatmap_data$Comparison,
+  levels = rev(unique(heatmap_data$Comparison))
+
+)
+
+# Use the observed range for better color contrast
+color_limit <- max(abs(heatmap_data$CCF), na.rm = TRUE)
+
+ccf_heatmap <- ggplot(
+  heatmap_data,
+  aes(
+    x = Lag,
+    y = Comparison,
+    fill = CCF
+  )
+) +
+  
+  # White borders create the heatmap grid
+  geom_tile(
+    color = "white",
+    linewidth = 0.35,
+    width = 0.95,
+    height = 0.90
+  ) +
+  
+  # Emphasize lag zero
+  geom_vline(
+    xintercept = 0,
+    color = "black",
+    linewidth = 0.7
+  ) +
+  
+  scale_fill_gradient2(
+  low = "#3B4CC0",
+  mid = "#F7F7F7",
+  high = "#B40426",
+  midpoint = 0,
+  limits = c(-1, 1),
+  breaks = seq(-1, 1, by = 0.5),
+  name = "CCF"
+) +
+  
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 5),
+    expand = c(0, 0)
+  ) +
+  
+  labs(
+    title = "Job Openings and Google Search Interest",
+    subtitle = "Cross-correlation coefficients across lags",
+    x = "Lag in days",
+    y = NULL,
+    caption = paste0(
+      "Blue indicates negative correlation; red indicates positive correlation. ",
+      "Positive lags indicate that Google search interest leads job openings."
+    )
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 12
+    ),
+    panel.grid = element_blank(),
+    axis.text.y = element_text(
+      size = 11,
+      face = "bold"
+    ),
+    axis.text.x = element_text(size = 10),
+    legend.title = element_text(face = "bold"),
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+ccf_heatmap
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+all_heatmap_data <- ccf_values %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      "ALL" = "All Job Openings",
+      .default = Job_Openings
+    ),
+
+    # Set the order of the three heatmap sections
+    Category = factor(
+      as.character(Category),
+      levels = c(
+        "Google Trends",
+        "Stock Prices",
+        "CAPEX and PPI"
+      )
+    ),
+
+    Predictor_Label = case_when(
+      grepl("PCU", Predictor, ignore.case = TRUE) ~ "PPI",
+      grepl("CAPEX", Predictor, ignore.case = TRUE) ~ "CAPEX",
+      TRUE ~ Predictor
+    ),
+
+    Predictor_Label = Predictor_Label %>%
+      gsub("^GT Job: ", "Google Trends—Job Title: ", .) %>%
+      gsub("^GT Skill: ", "Google Trends—Skill: ", .) %>%
+      gsub("_", " ", .) %>%
+      gsub("\\.", " ", .),
+
+    Comparison = paste(
+      Job_Type,
+      Predictor_Label,
+      sep = " — "
+    )
+  )
+
+# Arrange rows using the new category order
+comparison_order <- all_heatmap_data %>%
+  distinct(
+    Category,
+    Job_Type,
+    Predictor_Label,
+    Comparison
+  ) %>%
+  arrange(
+    Category,
+    Job_Type,
+    Predictor_Label
+  ) %>%
+  pull(Comparison)
+
+all_heatmap_data$Comparison <- factor(
+  all_heatmap_data$Comparison,
+  levels = rev(comparison_order)
+)
+```
+
+```{r}
+all_ccf_heatmap <- ggplot(
+  all_heatmap_data,
+  aes(
+    x = Lag,
+    y = Comparison,
+    fill = CCF
+  )
+) +
+
+  # Individual heatmap cells with visible grid lines
+  geom_tile(
+    color = "white",
+    linewidth = 0.25,
+    width = 0.95,
+    height = 0.90
+  ) +
+
+  # Mark lag zero
+  geom_vline(
+    xintercept = 0,
+    color = "black",
+    linewidth = 0.7
+  ) +
+
+  # Separate sections within the same figure
+  facet_grid(
+    Category ~ .,
+    scales = "free_y",
+    space = "free_y",
+    switch = "y"
+  ) +
+
+  # Full theoretical CCF range
+  scale_fill_gradient2(
+    low = "#3B4CC0",
+    mid = "#F7F7F7",
+    high = "#B40426",
+    midpoint = 0,
+    limits = c(-1, 1),
+    breaks = seq(-1, 1, by = 0.5),
+    name = "CCF"
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 5),
+    expand = c(0, 0)
+  ) +
+
+  labs(
+    title = "Cross-Correlation of Job Openings with External Indicators",
+    subtitle = paste0(
+      "Google search interest, stock prices, CAPEX, and producer price indices"
+    ),
+    x = "Lag in days",
+    y = NULL,
+    caption = paste0(
+      "Blue indicates negative correlation; red indicates positive correlation. ",
+      "Positive lags indicate that the external indicator leads job openings."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 12
+    ),
+    panel.grid = element_blank(),
+    axis.text.y = element_text(
+      size = 8.5
+    ),
+    axis.text.x = element_text(
+      size = 10
+    ),
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 11
+    ),
+    strip.placement = "outside",
+    legend.title = element_text(
+      face = "bold"
+    ),
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+all_ccf_heatmap
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Prepare stock-price CCF results
+stock_ccf <- ccf_values %>%
+  filter(Category == "Stock Prices") %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "ALL" = "All Job Openings",
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      .default = Job_Openings
+    ),
+
+    Stock = recode(
+      Predictor,
+      "C3AI"  = "C3.ai",
+      "GOOGL" = "Alphabet (GOOGL)",
+      "MSFT"  = "Microsoft (MSFT)",
+      "NVDA"  = "NVIDIA (NVDA)",
+      .default = Predictor
+    ),
+
+    Direction = ifelse(
+      CCF >= 0,
+      "Positive",
+      "Negative"
+    ),
+
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "Data Analysis",
+        "Software Development"
+      )
+    ),
+
+    Stock = factor(
+      Stock,
+      levels = c(
+        "C3.ai",
+        "Alphabet (GOOGL)",
+        "Microsoft (MSFT)",
+        "NVIDIA (NVDA)"
+      )
+    )
+  )
+
+# Confidence limits for each panel
+stock_bounds <- stock_ccf %>%
+  distinct(
+    Job_Type,
+    Stock,
+    Approx_95_Bound
+  )
+```
+
+```{r}
+stock_ccf_plot <- ggplot(
+  stock_ccf,
+  aes(x = Lag, y = CCF)
+) +
+
+  # Zero-correlation reference line
+  geom_hline(
+    yintercept = 0,
+    linewidth = 0.4
+  ) +
+
+  # Approximate 95% confidence limits
+  geom_hline(
+    data = stock_bounds,
+    aes(yintercept = Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  geom_hline(
+    data = stock_bounds,
+    aes(yintercept = -Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  # CCF stems
+  geom_segment(
+    aes(
+      xend = Lag,
+      y = 0,
+      yend = CCF,
+      color = Direction
+    ),
+    linewidth = 0.55
+  ) +
+
+  geom_point(
+    aes(color = Direction),
+    size = 1.3
+  ) +
+
+  # Mark lag zero
+  geom_vline(
+    xintercept = 0,
+    linetype = "solid",
+    linewidth = 0.5,
+    color = "black"
+  ) +
+
+  facet_grid(
+    rows = vars(Job_Type),
+    cols = vars(Stock)
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Negative" = "#3B4CC0",
+      "Positive" = "#B40426"
+    )
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 10)
+  ) +
+
+  coord_cartesian(
+    ylim = c(-1, 1)
+  ) +
+
+  labs(
+    title = "Cross-Correlation Between Job Openings and Technology Stock Prices",
+    subtitle = "CCF patterns across lags for C3.ai, Alphabet, Microsoft, and NVIDIA",
+    x = "Lag in days",
+    y = "Cross-correlation coefficient",
+    color = "CCF direction",
+    caption = paste0(
+      "Dashed lines represent approximate 95% confidence limits. ",
+      "Negative lags indicate that stock prices lead job openings; ",
+      "positive lags indicate that job openings lead stock prices."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 12
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 10
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+stock_ccf_plot
+```
+```{r}
+stock_ccf_plot <- ggplot(
+  stock_ccf,
+  aes(x = Lag, y = CCF)
+) +
+
+  geom_hline(
+    yintercept = 0,
+    linewidth = 0.4,
+    color = "black"
+  ) +
+
+  geom_hline(
+    data = stock_bounds,
+    aes(yintercept = Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  geom_hline(
+    data = stock_bounds,
+    aes(yintercept = -Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  # CCF stems without points at the ends
+  geom_segment(
+    aes(
+      xend = Lag,
+      y = 0,
+      yend = CCF
+    ),
+    linewidth = 0.6,
+    color = "#3B4CC0"
+  ) +
+
+  geom_vline(
+    xintercept = 0,
+    linewidth = 0.6,
+    color = "black"
+  ) +
+
+  facet_grid(
+    rows = vars(Job_Type),
+    cols = vars(Stock)
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 10)
+  ) +
+
+  coord_cartesian(
+    ylim = c(-1, 1)
+  ) +
+
+  labs(
+    title = "Cross-Correlation Between Job Openings and Technology Stock Prices",
+    subtitle = "CCF patterns across lags for C3.ai, Alphabet, Microsoft, and NVIDIA",
+    x = "Lag in days",
+    y = "Cross-correlation coefficient",
+    caption = paste0(
+      "Dashed lines represent approximate 95% confidence limits. ",
+      "Positive lags indicate that stock prices lead job openings."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(
+      face = "bold",
+      size = 10
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+stock_ccf_plot
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Prepare CAPEX and PPI CCF results
+capex_ppi_ccf <- ccf_values %>%
+  filter(Category == "CAPEX and PPI") %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "ALL" = "All Job Openings",
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      .default = Job_Openings
+    ),
+
+    Indicator = case_when(
+      grepl("PCU|PPI", Predictor, ignore.case = TRUE) ~ "PPI",
+      grepl("CAPEX", Predictor, ignore.case = TRUE) ~ "CAPEX",
+      TRUE ~ Predictor
+    ),
+
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "Data Analysis",
+        "Software Development"
+      )
+    ),
+
+    Indicator = factor(
+      Indicator,
+      levels = c("CAPEX", "PPI")
+    )
+  )
+
+# Confidence limits for each panel
+capex_ppi_bounds <- capex_ppi_ccf %>%
+  distinct(
+    Job_Type,
+    Indicator,
+    Approx_95_Bound
+  )
+```
+
+```{r}
+capex_ppi_ccf_plot <- ggplot(
+  capex_ppi_ccf,
+  aes(x = Lag, y = CCF)
+) +
+
+  # Zero-correlation line
+  geom_hline(
+    yintercept = 0,
+    linewidth = 0.4,
+    color = "black"
+  ) +
+
+  # Approximate 95% confidence limits
+  geom_hline(
+    data = capex_ppi_bounds,
+    aes(yintercept = Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  geom_hline(
+    data = capex_ppi_bounds,
+    aes(yintercept = -Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  # CCF stems only—no endpoint dots
+  geom_segment(
+    aes(
+      xend = Lag,
+      y = 0,
+      yend = CCF
+    ),
+    linewidth = 0.6,
+    color = "#3B4CC0"
+  ) +
+
+  # Mark lag zero
+  geom_vline(
+    xintercept = 0,
+    linewidth = 0.6,
+    color = "black"
+  ) +
+
+  facet_grid(
+    rows = vars(Job_Type),
+    cols = vars(Indicator)
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 10)
+  ) +
+
+  coord_cartesian(
+    ylim = c(-1, 1)
+  ) +
+
+  labs(
+    title = "Cross-Correlation Between Job Openings and Economic Indicators",
+    subtitle = "CCF patterns across lags for CAPEX and the Producer Price Index",
+    x = "Lag in days",
+    y = "Cross-correlation coefficient",
+    caption = paste0(
+      "Dashed lines represent approximate 95% confidence limits. ",
+      "Positive lags indicate that the economic indicator leads job openings."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+capex_ppi_ccf_plot
+```
+
+```{r}
+# Function to fit regression models for DA, SW, and ALL job openings
+fit_models <- function(predictors) {
+  
+  lapply(job_columns, function(outcome) {
+    
+    lm(
+      reformulate(
+        termlabels = unname(predictors),
+        response = outcome
+      ),
+      data = combined_data,
+      na.action = na.omit
+    )
+    
+  })
+}
+```
+
+```{r}
+google_models <- fit_models(google_columns)
+
+summary(google_models$DA)
+summary(google_models$SW)
+summary(google_models$ALL)
+
+
+###############
+
+stock_models <- fit_models(stock_columns)
+
+summary(stock_models$DA)
+summary(stock_models$SW)
+summary(stock_models$ALL)
+
+#########
+
+economic_models <- fit_models(capex_ppi_columns)
+
+summary(economic_models$DA)
+summary(economic_models$SW)
+summary(economic_models$ALL)
+
+
+###########
+
+model_results <- function(models, model_group) {
+  
+  do.call(
+    rbind,
+    lapply(names(models), function(job) {
+      
+      model_summary <- summary(models[[job]])
+      
+      data.frame(
+        Model_Group = model_group,
+        Job_Openings = job,
+        R_Squared = model_summary$r.squared,
+        Adjusted_R_Squared = model_summary$adj.r.squared,
+        RMSE = model_summary$sigma,
+        AIC = AIC(models[[job]]),
+        Observations = nobs(models[[job]])
+      )
+    })
+  )
+}
+
+regression_results <- rbind(
+  model_results(google_models, "Google Trends"),
+  model_results(stock_models, "Stock Prices"),
+  model_results(economic_models, "CAPEX and PPI")
+)
+
+regression_results
+```
+
+
+```{r}
+library(dplyr)
+library(broom)
+
+
+# Function to summarize a list of models
+make_model_summary <- function(model_list, model_group) {
+  
+  bind_rows(lapply(names(model_list), function(x) {
+    
+    fit <- glance(model_list[[x]])
+    
+    data.frame(
+      Model = model_group,
+      Job_Openings = x,
+      R_Squared = round(fit$r.squared, 3),
+      Adj_R_Squared = round(fit$adj.r.squared, 3),
+      RMSE = round(sqrt(mean(residuals(model_list[[x]])^2)), 2),
+      N = nobs(model_list[[x]])
+    )
+  }))
+}
+
+# Create one simple summary table
+results_table <- bind_rows(
+  make_model_summary(google_models, "Google Trends"),
+  make_model_summary(stock_models, "Stock Prices"),
+  make_model_summary(economic_models, "CAPEX & PPI")
+)
+
+results_table
+```
+```{r}
+library(tidyverse)
+
+# Combine the three job-opening columns and all Google Trends columns
+plot_columns <- c(
+  job_columns,
+  google_columns
+)
+
+# Create readable labels
+plot_labels <- c(
+  "Data Analysis Job Openings",
+  "Software Development Job Openings",
+  "All Job Openings",
+  names(google_columns)
+)
+
+# Connect each data column with its readable label
+label_lookup <- data.frame(
+  Column = unname(plot_columns),
+  Series = plot_labels
+)
+
+# Convert the data to long format
+jo_google_plot_data <- combined_data %>%
+  select(
+    Date,
+    all_of(unname(plot_columns))
+  ) %>%
+  pivot_longer(
+    cols = -Date,
+    names_to = "Column",
+    values_to = "Value"
+  ) %>%
+  left_join(
+    label_lookup,
+    by = "Column"
+  ) %>%
+  drop_na(Value)
+
+# Create the facet plot
+jo_google_plot <- ggplot(
+  jo_google_plot_data,
+  aes(
+    x = Date,
+    y = Value
+  )
+) +
+  geom_line(
+    linewidth = 0.7
+  ) +
+
+  facet_wrap(
+    ~ Series,
+    scales = "free_y",
+    ncol = 2
+  ) +
+
+  scale_x_date(
+    date_breaks = "6 months",
+    date_labels = "%b\n%Y"
+  ) +
+
+  labs(
+    title = "Job Openings and Google Search Interest Over Time",
+    subtitle = "Each panel uses its own y-axis scale",
+    x = "Date",
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 17
+    ),
+    plot.subtitle = element_text(
+      size = 11
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 10
+    ),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    )
+  )
+
+jo_google_plot
+```
+```{r}
+library(tidyverse)
+library(patchwork)
+
+# ------------------------------------------------------------
+# 1. Create readable labels
+# ------------------------------------------------------------
+
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+job_lookup <- tibble(
+  Column = unname(job_columns),
+  Series = unname(job_labels[names(job_columns)])
+)
+
+google_lookup <- tibble(
+  Column = unname(google_columns),
+  Series = names(google_columns)
+) %>%
+  mutate(
+    Series = case_when(
+      grepl("GT Job", Series, ignore.case = TRUE) ~
+        "Google Trends: Job-Title Searches",
+
+      grepl("GT Skill", Series, ignore.case = TRUE) ~
+        "Google Trends: Skill Searches",
+
+      TRUE ~ Series
+    )
+  )
+
+# ------------------------------------------------------------
+# 2. Convert the data to long format
+# ------------------------------------------------------------
+
+plot_lookup <- bind_rows(
+  job_lookup %>% mutate(Group = "Job Openings"),
+  google_lookup %>% mutate(Group = "Google Trends")
+)
+
+plot_data <- combined_data %>%
+  select(
+    Date,
+    all_of(plot_lookup$Column)
+  ) %>%
+  pivot_longer(
+    cols = -Date,
+    names_to = "Column",
+    values_to = "Value"
+  ) %>%
+  left_join(
+    plot_lookup,
+    by = "Column"
+  ) %>%
+  filter(!is.na(Value))
+
+# Use the same date range for both sections
+date_limits <- range(
+  plot_data$Date,
+  na.rm = TRUE
+)
+
+# ------------------------------------------------------------
+# 3. Job-opening panels
+# ------------------------------------------------------------
+
+job_plot <- plot_data %>%
+  filter(Group == "Job Openings") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#1F77B4"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "6 months",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Job Openings",
+    subtitle = paste0(
+      "Daily indices for data analysis, software development, ",
+      "and all job openings"
+    ),
+    x = NULL,
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    plot.margin = margin(
+      10, 20, 5, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 4. Google Trends panels
+# ------------------------------------------------------------
+
+google_plot <- plot_data %>%
+  filter(Group == "Google Trends") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#D55E00"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "6 months",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Google Search Interest",
+    subtitle = paste0(
+      "Search-interest indices for AI-related job titles ",
+      "and technical skills"
+    ),
+    x = "Year",
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    axis.title.x = element_text(
+      face = "bold",
+      margin = margin(t = 8)
+    ),
+
+    plot.margin = margin(
+      5, 20, 10, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 5. Combine the two sections
+# ------------------------------------------------------------
+
+job_google_figure <- job_plot / google_plot +
+  plot_layout(
+    heights = c(3, 2)
+  ) +
+
+  plot_annotation(
+    title = "Job Openings and Google Search Interest Over Time",
+    subtitle = paste0(
+      "Each panel uses its own vertical scale, while all panels ",
+      "share the same time axis"
+    ),
+    theme = theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 22
+      ),
+      plot.subtitle = element_text(
+        size = 12
+      )
+    )
+  )
+
+job_google_figure
+```
+
+```{r}
+library(tidyverse)
+library(patchwork)
+
+# ------------------------------------------------------------
+# 1. Create readable labels
+# ------------------------------------------------------------
+
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+stock_labels <- c(
+  MSFT  = "Microsoft (MSFT)",
+  C3AI  = "C3.ai (AI)",
+  NVDA  = "NVIDIA (NVDA)",
+  GOOGL = "Alphabet (GOOGL)"
+)
+
+job_lookup <- tibble(
+  Column = unname(job_columns),
+  Series = unname(job_labels[names(job_columns)]),
+  Group = "Job Openings"
+)
+
+stock_lookup <- tibble(
+  Column = unname(stock_columns),
+  Series = unname(stock_labels[names(stock_columns)]),
+  Group = "Stock Prices"
+)
+
+plot_lookup <- bind_rows(
+  job_lookup,
+  stock_lookup
+)
+
+# ------------------------------------------------------------
+# 2. Convert the data to long format
+# ------------------------------------------------------------
+
+jo_stock_plot_data <- combined_data %>%
+  select(
+    Date,
+    all_of(plot_lookup$Column)
+  ) %>%
+  pivot_longer(
+    cols = -Date,
+    names_to = "Column",
+    values_to = "Value"
+  ) %>%
+  left_join(
+    plot_lookup,
+    by = "Column"
+  ) %>%
+  filter(!is.na(Value))
+
+# Set the panel order
+jo_stock_plot_data$Series <- factor(
+  jo_stock_plot_data$Series,
+  levels = c(
+    "Data Analysis Job Openings",
+    "Software Development Job Openings",
+    "All Job Openings",
+    "Microsoft (MSFT)",
+    "C3.ai (AI)",
+    "NVIDIA (NVDA)",
+    "Alphabet (GOOGL)"
+  )
+)
+
+# Common date range for every panel
+date_limits <- range(
+  jo_stock_plot_data$Date,
+  na.rm = TRUE
+)
+
+# ------------------------------------------------------------
+# 3. Job-opening panels
+# ------------------------------------------------------------
+
+job_plot <- jo_stock_plot_data %>%
+  filter(Group == "Job Openings") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#1F5A94"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Job Openings",
+    subtitle = paste0(
+      "Daily indices for data analysis, software development, ",
+      "and all job openings"
+    ),
+    x = NULL,
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray88",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    plot.margin = margin(
+      10, 20, 5, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 4. Stock-price panels
+# ------------------------------------------------------------
+
+stock_plot <- jo_stock_plot_data %>%
+  filter(Group == "Stock Prices") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#2E7D5B"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Technology Stock Prices",
+    subtitle = paste0(
+      "Closing prices for Microsoft, C3.ai, NVIDIA, ",
+      "and Alphabet"
+    ),
+    x = "Year",
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray88",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    axis.title.x = element_text(
+      face = "bold",
+      margin = margin(t = 8)
+    ),
+
+    plot.margin = margin(
+      5, 20, 10, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 5. Combine the two sections
+# ------------------------------------------------------------
+
+job_stock_figure <- job_plot / stock_plot +
+
+  plot_layout(
+    heights = c(3, 4)
+  ) +
+
+  plot_annotation(
+    title = "Job Openings and Technology Stock Prices Over Time",
+
+    subtitle = paste0(
+      "Each panel uses its own vertical scale, while all panels ",
+      "share the same time axis"
+    ),
+
+    caption = paste0(
+      "Job-opening values are posting indices; ",
+      "stock values are closing prices."
+    ),
+
+    theme = theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 22
+      ),
+
+      plot.subtitle = element_text(
+        size = 12,
+        color = "gray35"
+      ),
+
+      plot.caption = element_text(
+        size = 10,
+        color = "gray40",
+        face = "italic",
+        hjust = 0
+      )
+    )
+  )
+
+job_stock_figure
+```
+```{r}
+library(tidyverse)
+library(patchwork)
+
+# ------------------------------------------------------------
+# 1. Create readable labels
+# ------------------------------------------------------------
+
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+job_lookup <- tibble(
+  Column = unname(job_columns),
+  Series = unname(job_labels[names(job_columns)]),
+  Group = "Job Openings"
+)
+
+economic_lookup <- tibble(
+  Column = unname(capex_ppi_columns),
+  Original_Name = names(capex_ppi_columns)
+) %>%
+  mutate(
+    Series = case_when(
+      grepl("capex", Original_Name, ignore.case = TRUE) ~
+        "Capital Expenditure (CAPEX)",
+
+      grepl("PCU|PPI", Original_Name, ignore.case = TRUE) ~
+        "Producer Price Index (PPI)",
+
+      TRUE ~ Original_Name
+    ),
+
+    Group = "Economic Indicators"
+  ) %>%
+  select(
+    Column,
+    Series,
+    Group
+  )
+
+plot_lookup <- bind_rows(
+  job_lookup,
+  economic_lookup
+)
+
+# ------------------------------------------------------------
+# 2. Convert the data to long format
+# ------------------------------------------------------------
+
+jo_economic_plot_data <- combined_data %>%
+  select(
+    Date,
+    all_of(plot_lookup$Column)
+  ) %>%
+  pivot_longer(
+    cols = -Date,
+    names_to = "Column",
+    values_to = "Value"
+  ) %>%
+  left_join(
+    plot_lookup,
+    by = "Column"
+  ) %>%
+  filter(!is.na(Value))
+
+# Set the panel order
+jo_economic_plot_data$Series <- factor(
+  jo_economic_plot_data$Series,
+  levels = c(
+    "Data Analysis Job Openings",
+    "Software Development Job Openings",
+    "All Job Openings",
+    "Capital Expenditure (CAPEX)",
+    "Producer Price Index (PPI)"
+  )
+)
+
+# Use the same date range for all panels
+date_limits <- range(
+  jo_economic_plot_data$Date,
+  na.rm = TRUE
+)
+
+# ------------------------------------------------------------
+# 3. Job-opening panels
+# ------------------------------------------------------------
+
+job_plot <- jo_economic_plot_data %>%
+  filter(Group == "Job Openings") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#1F5A94"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Job Openings",
+    subtitle = paste0(
+      "Daily indices for data analysis, software development, ",
+      "and all job openings"
+    ),
+    x = NULL,
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray88",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    plot.margin = margin(
+      10, 20, 5, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 4. CAPEX and PPI panels
+# ------------------------------------------------------------
+
+economic_plot <- jo_economic_plot_data %>%
+  filter(Group == "Economic Indicators") %>%
+  ggplot(
+    aes(x = Date, y = Value)
+  ) +
+
+  geom_line(
+    linewidth = 0.9,
+    color = "#B45F06"
+  ) +
+
+  facet_grid(
+    Series ~ .,
+    scales = "free_y",
+    switch = "y"
+  ) +
+
+  scale_x_date(
+    limits = date_limits,
+    date_breaks = "1 year",
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+
+  labs(
+    title = "Economic Indicators",
+    subtitle = paste0(
+      "Capital expenditure and producer price index ",
+      "over the common study period"
+    ),
+    x = "Year",
+    y = NULL
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.placement = "outside",
+    strip.background = element_blank(),
+
+    strip.text.y.left = element_text(
+      angle = 0,
+      face = "bold",
+      size = 10,
+      hjust = 1
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    panel.grid.major.x = element_line(
+      color = "gray88",
+      linewidth = 0.3
+    ),
+
+    panel.grid.major.y = element_line(
+      color = "gray90",
+      linewidth = 0.3
+    ),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    axis.title.x = element_text(
+      face = "bold",
+      margin = margin(t = 8)
+    ),
+
+    plot.margin = margin(
+      5, 20, 10, 20
+    )
+  )
+
+# ------------------------------------------------------------
+# 5. Combine the two sections
+# ------------------------------------------------------------
+
+job_economic_figure <- job_plot / economic_plot +
+
+  plot_layout(
+    heights = c(3, 2)
+  ) +
+
+  plot_annotation(
+    title = "Job Openings and Economic Indicators Over Time",
+
+    subtitle = paste0(
+      "Each panel uses its own vertical scale, while all panels ",
+      "share the same time axis"
+    ),
+
+    caption = paste0(
+      "Job-opening values are posting indices. ",
+      "CAPEX and PPI are shown in their original measurement scales."
+    ),
+
+    theme = theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 22
+      ),
+
+      plot.subtitle = element_text(
+        size = 12,
+        color = "gray35"
+      ),
+
+      plot.caption = element_text(
+        size = 10,
+        color = "gray40",
+        face = "italic",
+        hjust = 0
+      )
+    )
+  )
+
+job_economic_figure
+```
+
+We use CCF to examine lead–lag dependence between job openings and each external signal. Specifically, we estimate the correlation between job openings at time t and lagged values of Google Trends, stock prices, CAPEX, and PPI. This helps us identify whether any predictors appear to lead job-opening changes and may therefore be useful as exogenous inputs in RNN/LSTM forecasting models.
+
+Important statistical point:
+
+CCF is not simply a correlation between two raw time series. If the series are trending or nonstationary, raw CCF can be misleading because both series may share trend, seasonality, or autocorrelation. So you usually apply CCF after some preprocessing, such as differencing, log-differencing, detrending, seasonal adjustment, or prewhitening.
+
+```{r}
+library(tidyverse)
+
+# Maximum lag in days
+lag_max <- 30
+
+# ------------------------------------------------------------
+# 1. First-difference all variables except Date
+# ------------------------------------------------------------
+
+ccf_data_diff <- ccf_data %>%
+  arrange(Date) %>%
+  mutate(
+    across(
+      -Date,
+      ~ .x - lag(.x)
+    )
+  ) %>%
+  slice(-1)
+
+# ------------------------------------------------------------
+# 2. Calculate and plot CCFs using differenced variables
+# ------------------------------------------------------------
+
+ccf_results <- list()
+result_number <- 1
+
+# Folder for saving results
+diff_folder <- file.path(
+  week4_folder,
+  "CCF_First_Difference"
+)
+
+dir.create(
+  diff_folder,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+# Open one multipage PDF
+pdf(
+  file.path(
+    diff_folder,
+    "CCF_first_difference_all_plots.pdf"
+  ),
+  width = 10,
+  height = 7
+)
+
+for (job_name in names(job_columns)) {
+
+  job_column <- job_columns[[job_name]]
+
+  for (predictor_name in names(predictor_columns)) {
+
+    predictor_column <- predictor_columns[[predictor_name]]
+
+    # Keep complete observations for this pair
+    pair_data <- ccf_data_diff %>%
+      select(
+        all_of(job_column),
+        all_of(predictor_column)
+      ) %>%
+      drop_na()
+
+    job_values <- pair_data[[job_column]]
+    predictor_values <- pair_data[[predictor_column]]
+
+    # Only calculate CCF when enough observations are available
+    if (
+      length(job_values) > lag_max + 2 &&
+      sd(job_values) > 0 &&
+      sd(predictor_values) > 0
+    ) {
+
+      ccf_object <- ccf(
+        job_values,
+        predictor_values,
+        lag.max = lag_max,
+        plot = TRUE,
+        main = paste(
+          "First-Difference CCF:",
+          job_name,
+          "Job Openings vs",
+          predictor_name
+        ),
+        xlab = "Lag in days",
+        ylab = "Cross-correlation"
+      )
+
+      ccf_results[[result_number]] <- data.frame(
+        Category = predictor_groups[[predictor_name]],
+        Job_Openings = job_name,
+        Predictor = predictor_name,
+        Lag = as.numeric(ccf_object$lag),
+        CCF = as.numeric(ccf_object$acf),
+        N = length(job_values),
+        Approx_95_Bound = 1.96 / sqrt(length(job_values))
+      )
+
+      result_number <- result_number + 1
+    }
+  }
+}
+
+dev.off()
+
+# ------------------------------------------------------------
+# 3. Combine and save the CCF results
+# ------------------------------------------------------------
+
+ccf_values <- bind_rows(ccf_results) %>%
+  mutate(
+    Significant = abs(CCF) > Approx_95_Bound
+  )
+
+write_csv(
+  ccf_values,
+  file.path(
+    diff_folder,
+    "CCF_first_difference_all_values.csv"
+  )
+)
+
+# Check the results
+head(ccf_values)
+```
+```{r}
+library(tidyverse)
+
+# Folder for saving first-difference CCF plots
+diff_plot_folder <- file.path(
+  week4_folder,
+  "CCF_First_Difference",
+  "Plots"
+)
+
+dir.create(
+  diff_plot_folder,
+  showWarnings = FALSE,
+  recursive = TRUE
+)
+
+# Prepare readable labels
+diff_ccf_plot_data <- ccf_values %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      "ALL" = "All Job Openings",
+      .default = Job_Openings
+    ),
+
+    Predictor_Label = case_when(
+      Category == "Google Trends" ~ Predictor %>%
+        gsub("^GT Job: ", "Job Title: ", .) %>%
+        gsub("^GT Skill: ", "Skill: ", .) %>%
+        gsub("[_.]", " ", .),
+
+      Category == "Stock Prices" ~ recode(
+        Predictor,
+        "MSFT"  = "Microsoft",
+        "C3AI"  = "C3.ai",
+        "NVDA"  = "NVIDIA",
+        "GOOGL" = "Alphabet",
+        .default = Predictor
+      ),
+
+      Category == "CAPEX and PPI" &
+        grepl("PCU|PPI", Predictor, ignore.case = TRUE) ~
+        "Producer Price Index (PPI)",
+
+      Category == "CAPEX and PPI" &
+        grepl("CAPEX", Predictor, ignore.case = TRUE) ~
+        "Capital Expenditure (CAPEX)",
+
+      TRUE ~ Predictor
+    )
+  )
+
+# Create one set of CCF plots for each predictor category
+for (category_name in unique(diff_ccf_plot_data$Category)) {
+
+  category_data <- diff_ccf_plot_data %>%
+    filter(Category == category_name)
+
+  # Number of facet columns
+  facet_columns <- case_when(
+    category_name == "Google Trends" ~ 3,
+    category_name == "Stock Prices" ~ 2,
+    TRUE ~ 2
+  )
+
+  # Create a separate plot for each job-opening category
+  for (job_name in unique(category_data$Job_Type)) {
+
+    plot_data <- category_data %>%
+      filter(Job_Type == job_name)
+
+    if (nrow(plot_data) == 0) {
+      next
+    }
+
+    confidence_bounds <- plot_data %>%
+      distinct(
+        Predictor_Label,
+        Approx_95_Bound
+      )
+
+    diff_ccf_plot <- ggplot(
+      plot_data,
+      aes(
+        x = Lag,
+        y = CCF
+      )
+    ) +
+
+      # Zero-correlation line
+      geom_hline(
+        yintercept = 0,
+        linewidth = 0.45,
+        color = "black"
+      ) +
+
+      # Approximate 95% confidence limits
+      geom_hline(
+        data = confidence_bounds,
+        aes(yintercept = Approx_95_Bound),
+        linetype = "dashed",
+        linewidth = 0.5,
+        color = "steelblue"
+      ) +
+
+      geom_hline(
+        data = confidence_bounds,
+        aes(yintercept = -Approx_95_Bound),
+        linetype = "dashed",
+        linewidth = 0.5,
+        color = "steelblue"
+      ) +
+
+      # CCF stems
+      geom_segment(
+        aes(
+          xend = Lag,
+          y = 0,
+          yend = CCF
+        ),
+        linewidth = 0.6,
+        color = "gray35"
+      ) +
+
+      # Mark lag zero
+      geom_vline(
+        xintercept = 0,
+        linewidth = 0.5,
+        color = "black"
+      ) +
+
+      facet_wrap(
+        ~ Predictor_Label,
+        ncol = facet_columns,
+        scales = "free_y"
+      ) +
+
+      scale_x_continuous(
+        breaks = seq(
+          min(plot_data$Lag, na.rm = TRUE),
+          max(plot_data$Lag, na.rm = TRUE),
+          by = 10
+        )
+      ) +
+
+      coord_cartesian(
+        ylim = c(-1, 1)
+      ) +
+
+      labs(
+        title = paste0(
+          "First-Difference Cross-Correlation: ",
+          job_name
+        ),
+
+        subtitle = paste0(
+          job_name,
+          " versus ",
+          category_name,
+          "; positive lags indicate that the predictor leads job openings"
+        ),
+
+        x = "Lag in days",
+        y = "Cross-correlation coefficient",
+
+        caption = paste0(
+          "All variables were first-differenced before calculating the CCF. ",
+          "Dashed lines show approximate 95% confidence limits."
+        )
+      ) +
+
+      theme_minimal(base_size = 12) +
+
+      theme(
+        plot.title = element_text(
+          face = "bold",
+          size = 18
+        ),
+
+        plot.subtitle = element_text(
+          size = 11,
+          color = "gray35",
+          margin = margin(b = 10)
+        ),
+
+        strip.text = element_text(
+          face = "bold",
+          size = 10
+        ),
+
+        panel.grid.minor = element_blank(),
+
+        panel.spacing = grid::unit(
+          1,
+          "lines"
+        ),
+
+        plot.caption = element_text(
+          hjust = 0,
+          face = "italic",
+          color = "gray40"
+        )
+      )
+
+    # Display in the rendered QMD
+    print(diff_ccf_plot)
+
+    # Create safe filename
+    file_name <- paste0(
+      "First_Difference_CCF_",
+      gsub("[^A-Za-z0-9]+", "_", job_name),
+      "_vs_",
+      gsub("[^A-Za-z0-9]+", "_", category_name),
+      ".png"
+    )
+
+    # Save the plot
+    ggsave(
+      filename = file.path(
+        diff_plot_folder,
+        file_name
+      ),
+      plot = diff_ccf_plot,
+      width = 13,
+      height = 9,
+      dpi = 300,
+      bg = "white"
+    )
+  }
+}
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# ------------------------------------------------------------
+# Prepare first-differenced stock CCF results
+# ------------------------------------------------------------
+
+stock_ccf_diff <- ccf_values %>%
+  filter(Category == "Stock Prices") %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "ALL" = "All Job Openings",
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      .default = Job_Openings
+    ),
+
+    Stock = recode(
+      Predictor,
+      "C3AI"  = "C3.ai",
+      "GOOGL" = "Alphabet (GOOGL)",
+      "MSFT"  = "Microsoft (MSFT)",
+      "NVDA"  = "NVIDIA (NVDA)",
+      .default = Predictor
+    ),
+
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "Data Analysis",
+        "Software Development"
+      )
+    ),
+
+    Stock = factor(
+      Stock,
+      levels = c(
+        "C3.ai",
+        "Alphabet (GOOGL)",
+        "Microsoft (MSFT)",
+        "NVIDIA (NVDA)"
+      )
+    )
+  )
+
+# Confidence limits for each panel
+stock_bounds_diff <- stock_ccf_diff %>%
+  distinct(
+    Job_Type,
+    Stock,
+    Approx_95_Bound
+  )
+
+# ------------------------------------------------------------
+# Create the faceted CCF plot
+# ------------------------------------------------------------
+
+stock_ccf_diff_plot <- ggplot(
+  stock_ccf_diff,
+  aes(
+    x = Lag,
+    y = CCF
+  )
+) +
+
+  # Zero-correlation line
+  geom_hline(
+    yintercept = 0,
+    linewidth = 0.4,
+    color = "black"
+  ) +
+
+  # Approximate 95% confidence limits
+  geom_hline(
+    data = stock_bounds_diff,
+    aes(yintercept = Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  geom_hline(
+    data = stock_bounds_diff,
+    aes(yintercept = -Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  # CCF stems
+  geom_segment(
+    aes(
+      xend = Lag,
+      y = 0,
+      yend = CCF
+    ),
+    linewidth = 0.55,
+    color = "#3B4CC0"
+  ) +
+
+  # Mark lag zero
+  geom_vline(
+    xintercept = 0,
+    linewidth = 0.65,
+    color = "black"
+  ) +
+
+  # Rows = job openings; columns = stocks
+  facet_grid(
+    rows = vars(Job_Type),
+    cols = vars(Stock)
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 10)
+  ) +
+
+  coord_cartesian(
+    xlim = c(-30, 30),
+    ylim = c(-1, 1)
+  ) +
+
+  labs(
+    title = paste0(
+      "Cross-Correlation Between First-Differenced ",
+      "Job Openings and Technology Stock Prices"
+    ),
+
+    subtitle = paste0(
+      "CCF patterns across lags for daily changes in ",
+      "C3.ai, Alphabet, Microsoft, and NVIDIA"
+    ),
+
+    x = "Lag in days",
+    y = "Cross-correlation coefficient",
+
+    caption = paste0(
+      "All variables were first-differenced before calculating the CCF. ",
+      "Dashed lines represent approximate 95% confidence limits. ",
+      "Positive lags indicate that stock-price changes lead ",
+      "changes in job openings."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 12,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.text.x = element_text(
+      face = "bold",
+      size = 10
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 10
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    axis.title = element_text(
+      face = "bold"
+    ),
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic",
+      size = 9,
+      color = "gray35"
+    )
+  )
+
+stock_ccf_diff_plot
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# ------------------------------------------------------------
+# Prepare first-differenced CAPEX and PPI CCF results
+# ------------------------------------------------------------
+
+capex_ppi_ccf_diff <- ccf_values %>%
+  filter(Category == "CAPEX and PPI") %>%
+  mutate(
+    Job_Type = recode(
+      Job_Openings,
+      "ALL" = "All Job Openings",
+      "DA"  = "Data Analysis",
+      "SW"  = "Software Development",
+      .default = Job_Openings
+    ),
+
+    Indicator = case_when(
+      grepl("PCU|PPI", Predictor, ignore.case = TRUE) ~
+        "Producer Price Index (PPI)",
+
+      grepl("CAPEX", Predictor, ignore.case = TRUE) ~
+        "Capital Expenditure (CAPEX)",
+
+      TRUE ~ Predictor
+    ),
+
+    Job_Type = factor(
+      Job_Type,
+      levels = c(
+        "All Job Openings",
+        "Data Analysis",
+        "Software Development"
+      )
+    ),
+
+    Indicator = factor(
+      Indicator,
+      levels = c(
+        "Capital Expenditure (CAPEX)",
+        "Producer Price Index (PPI)"
+      )
+    )
+  )
+
+# Confidence limits for each panel
+capex_ppi_bounds_diff <- capex_ppi_ccf_diff %>%
+  distinct(
+    Job_Type,
+    Indicator,
+    Approx_95_Bound
+  )
+
+# ------------------------------------------------------------
+# Create the faceted CCF plot
+# ------------------------------------------------------------
+
+capex_ppi_ccf_diff_plot <- ggplot(
+  capex_ppi_ccf_diff,
+  aes(
+    x = Lag,
+    y = CCF
+  )
+) +
+
+  # Zero-correlation line
+  geom_hline(
+    yintercept = 0,
+    linewidth = 0.4,
+    color = "black"
+  ) +
+
+  # Approximate 95% confidence limits
+  geom_hline(
+    data = capex_ppi_bounds_diff,
+    aes(yintercept = Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  geom_hline(
+    data = capex_ppi_bounds_diff,
+    aes(yintercept = -Approx_95_Bound),
+    linetype = "dashed",
+    linewidth = 0.45,
+    color = "steelblue"
+  ) +
+
+  # CCF stems
+  geom_segment(
+    aes(
+      xend = Lag,
+      y = 0,
+      yend = CCF
+    ),
+    linewidth = 0.55,
+    color = "#3B4CC0"
+  ) +
+
+  # Mark lag zero
+  geom_vline(
+    xintercept = 0,
+    linewidth = 0.65,
+    color = "black"
+  ) +
+
+  # Rows = job openings; columns = economic indicators
+  facet_grid(
+    rows = vars(Job_Type),
+    cols = vars(Indicator)
+  ) +
+
+  scale_x_continuous(
+    breaks = seq(-30, 30, by = 10)
+  ) +
+
+  coord_cartesian(
+    xlim = c(-30, 30),
+    ylim = c(-1, 1)
+  ) +
+
+  labs(
+    title = paste0(
+      "Cross-Correlation Between First-Differenced ",
+      "Job Openings and Economic Indicators"
+    ),
+
+    subtitle = paste0(
+      "CCF patterns across lags for daily changes in ",
+      "CAPEX and the Producer Price Index"
+    ),
+
+    x = "Lag in days",
+    y = "Cross-correlation coefficient",
+
+    caption = paste0(
+      "All variables were first-differenced before calculating the CCF. ",
+      "Dashed lines represent approximate 95% confidence limits. ",
+      "Positive lags indicate that changes in the economic indicator ",
+      "lead changes in job openings."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+
+    plot.subtitle = element_text(
+      size = 12,
+      color = "gray35",
+      margin = margin(b = 10)
+    ),
+
+    strip.text.x = element_text(
+      face = "bold",
+      size = 10
+    ),
+
+    strip.text.y = element_text(
+      face = "bold",
+      size = 10
+    ),
+
+    panel.grid.minor = element_blank(),
+
+    panel.spacing = grid::unit(
+      0.7,
+      "lines"
+    ),
+
+    axis.title = element_text(
+      face = "bold"
+    ),
+
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic",
+      size = 9,
+      color = "gray35"
+    )
+  )
+
+capex_ppi_ccf_diff_plot
+
+# Save the plot
+ggsave(
+  filename = file.path(
+    diff_plot_folder,
+    "First_Difference_CCF_Job_Openings_vs_CAPEX_PPI.png"
+  ),
+  plot = capex_ppi_ccf_diff_plot,
+  width = 12,
+  height = 9,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+## ARIMA. model
+
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of days to forecast
+forecast_horizon <- 30
+
+# Readable names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+# ------------------------------------------------------------
+# 1. Fit separate univariate auto.arima models
+# ------------------------------------------------------------
+
+arima_models <- lapply(
+  names(job_columns),
+  function(job_name) {
+
+    column_name <- job_columns[[job_name]]
+
+    # Daily time series with weekly seasonality
+    y <- ts(
+      na.interp(combined_data[[column_name]]),
+      frequency = 7
+    )
+
+    auto.arima(
+      y,
+      seasonal = TRUE,
+      stepwise = FALSE,
+      approximation = FALSE
+    )
+  }
+)
+
+names(arima_models) <- names(job_columns)
+
+# ------------------------------------------------------------
+# 2. Forecast each series
+# ------------------------------------------------------------
+
+arima_forecasts <- lapply(
+  arima_models,
+  forecast,
+  h = forecast_horizon,
+  level = c(80, 95)
+)
+
+# ------------------------------------------------------------
+# 3. Prepare historical data
+# ------------------------------------------------------------
+
+historical_data <- bind_rows(
+  lapply(names(job_columns), function(job_name) {
+
+    tibble(
+      Date = combined_data$Date,
+      Value = combined_data[[job_columns[[job_name]]]],
+      Job_Type = job_labels[[job_name]]
+    )
+  })
+) %>%
+  drop_na(Value)
+
+# Future dates
+future_dates <- seq(
+  max(combined_data$Date) + 1,
+  by = "day",
+  length.out = forecast_horizon
+)
+
+# ------------------------------------------------------------
+# 4. Prepare forecast results
+# ------------------------------------------------------------
+
+forecast_data <- bind_rows(
+  lapply(names(arima_forecasts), function(job_name) {
+
+    fc <- arima_forecasts[[job_name]]
+
+    tibble(
+      Date = future_dates,
+      Forecast = as.numeric(fc$mean),
+      Lower_80 = as.numeric(fc$lower[, "80%"]),
+      Upper_80 = as.numeric(fc$upper[, "80%"]),
+      Lower_95 = as.numeric(fc$lower[, "95%"]),
+      Upper_95 = as.numeric(fc$upper[, "95%"]),
+      Job_Type = job_labels[[job_name]]
+    )
+  })
+)
+
+# ------------------------------------------------------------
+# 5. Plot historical values and forecasts
+# ------------------------------------------------------------
+
+arima_forecast_plot <- ggplot() +
+
+  geom_line(
+    data = historical_data,
+    aes(
+      x = Date,
+      y = Value
+    ),
+    linewidth = 0.7,
+    color = "#1F5A94"
+  ) +
+
+  geom_ribbon(
+    data = forecast_data,
+    aes(
+      x = Date,
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "#9ECAE1",
+    alpha = 0.35
+  ) +
+
+  geom_ribbon(
+    data = forecast_data,
+    aes(
+      x = Date,
+      ymin = Lower_80,
+      ymax = Upper_80
+    ),
+    fill = "#4292C6",
+    alpha = 0.40
+  ) +
+
+  geom_line(
+    data = forecast_data,
+    aes(
+      x = Date,
+      y = Forecast
+    ),
+    linewidth = 0.9,
+    color = "#B2182B"
+  ) +
+
+  geom_vline(
+    xintercept = max(combined_data$Date),
+    linetype = "dashed",
+    linewidth = 0.6,
+    color = "gray35"
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  labs(
+    title = "Univariate ARIMA Forecasts for Job Openings",
+    subtitle = paste0(
+      "Separate auto.arima models with ",
+      forecast_horizon,
+      "-day forecasts"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    caption = paste0(
+      "Red lines show forecasts. Dark and light shaded regions ",
+      "represent 80% and 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+arima_forecast_plot
+
+# ------------------------------------------------------------
+# 6. Display selected models
+# ------------------------------------------------------------
+
+arima_models$DA
+arima_models$SW
+arima_models$ALL
+```
+```{r}
+library(tidyverse)
+library(forecast)
+
+# Number of observations used for testing
+test_horizon <- 30
+
+# Readable category names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+prediction_results <- list()
+arima_test_models <- list()
+
+for (job_name in names(job_columns)) {
+
+  job_column <- job_columns[[job_name]]
+
+  # Prepare the series
+  series_data <- combined_data %>%
+    select(
+      Date,
+      Value = all_of(job_column)
+    ) %>%
+    arrange(Date)
+
+  # Interpolate missing observations
+  full_series <- ts(
+    forecast::na.interp(series_data$Value),
+    frequency = 7
+  )
+
+  # Training and testing data
+  train_series <- head(
+    full_series,
+    -test_horizon
+  )
+
+  test_series <- tail(
+    full_series,
+    test_horizon
+  )
+
+  test_dates <- tail(
+    series_data$Date,
+    test_horizon
+  )
+
+  # Fit auto.arima using only the training data
+  model <- auto.arima(
+    train_series,
+    seasonal = TRUE,
+    stepwise = FALSE,
+    approximation = FALSE
+  )
+
+  # Predict the test period
+  prediction <- forecast(
+    model,
+    h = test_horizon,
+    level = c(80, 95)
+  )
+
+  # Save the model
+  arima_test_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  prediction_results[[job_name]] <- tibble(
+    Date = test_dates,
+    Actual = as.numeric(test_series),
+    Predicted = as.numeric(prediction$mean),
+    Lower_95 = as.numeric(prediction$lower[, "95%"]),
+    Upper_95 = as.numeric(prediction$upper[, "95%"]),
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# Combine the three results
+actual_prediction_data <- bind_rows(
+  prediction_results
+)
+
+# Plot actual versus predicted values
+actual_vs_prediction_plot <- ggplot(
+  actual_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  # Actual values
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_point(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    size = 1.5
+  ) +
+
+  # Predicted values
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+
+  geom_point(
+    aes(
+      y = Predicted,
+      color = "Predicted"
+    ),
+    size = 1.5
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Predicted" = "#B2182B"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Univariate auto.arima predictions for the final ",
+      test_horizon,
+      " days"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    caption = paste0(
+      "Dashed red lines show predictions. ",
+      "Shaded areas represent 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+actual_vs_prediction_plot
+```
+
+## Prophet model
+
+```{r}
+library(tidyverse)
+library(prophet)
+
+# install.packages("prophet")  # Run once if Prophet is not installed
+
+# Number of final observations used as the test period
+test_horizon <- 30
+
+# Readable category names
+job_labels <- c(
+  DA  = "Data Analysis Job Openings",
+  SW  = "Software Development Job Openings",
+  ALL = "All Job Openings"
+)
+
+prophet_models <- list()
+prophet_predictions <- list()
+
+# ------------------------------------------------------------
+# Fit one Prophet model for each job-opening series
+# ------------------------------------------------------------
+
+for (job_name in names(job_columns)) {
+
+  job_column <- job_columns[[job_name]]
+
+  # Prophet requires columns named ds and y
+  series_data <- combined_data %>%
+    transmute(
+      ds = as.Date(Date),
+      y = as.numeric(.data[[job_column]])
+    ) %>%
+    arrange(ds) %>%
+    filter(!is.na(y))
+
+  # Split into training and testing periods
+  train_data <- head(
+    series_data,
+    -test_horizon
+  )
+
+  test_data <- tail(
+    series_data,
+    test_horizon
+  )
+
+  # Fit the Prophet model using training data only
+  model <- prophet(
+    train_data,
+    daily.seasonality = FALSE,
+    weekly.seasonality = TRUE,
+    yearly.seasonality = TRUE,
+    interval.width = 0.95
+  )
+
+  # Predict the dates in the test period
+  test_forecast <- predict(
+    model,
+    test_data %>%
+      select(ds)
+  )
+
+  # Save fitted model
+  prophet_models[[job_name]] <- model
+
+  # Save actual and predicted values
+  prophet_predictions[[job_name]] <- tibble(
+    Date = test_data$ds,
+    Actual = test_data$y,
+    Predicted = test_forecast$yhat,
+    Lower_95 = test_forecast$yhat_lower,
+    Upper_95 = test_forecast$yhat_upper,
+    Job_Type = job_labels[[job_name]]
+  )
+}
+
+# Combine results from the three models
+prophet_actual_prediction_data <- bind_rows(
+  prophet_predictions
+)
+
+# ------------------------------------------------------------
+# Plot actual versus predicted values
+# ------------------------------------------------------------
+
+prophet_actual_vs_predicted_plot <- ggplot(
+  prophet_actual_prediction_data,
+  aes(x = Date)
+) +
+
+  # 95% prediction interval
+  geom_ribbon(
+    aes(
+      ymin = Lower_95,
+      ymax = Upper_95
+    ),
+    fill = "gray70",
+    alpha = 0.35
+  ) +
+
+  # Actual values
+  geom_line(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    linewidth = 1
+  ) +
+
+  geom_point(
+    aes(
+      y = Actual,
+      color = "Actual"
+    ),
+    size = 1.5
+  ) +
+
+  # Prophet predictions
+  geom_line(
+    aes(
+      y = Predicted,
+      color = "Prophet Prediction"
+    ),
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+
+  geom_point(
+    aes(
+      y = Predicted,
+      color = "Prophet Prediction"
+    ),
+    size = 1.5
+  ) +
+
+  facet_grid(
+    Job_Type ~ .,
+    scales = "free_y"
+  ) +
+
+  scale_color_manual(
+    values = c(
+      "Actual" = "#1F5A94",
+      "Prophet Prediction" = "#B2182B"
+    )
+  ) +
+
+  labs(
+    title = "Actual Versus Predicted Job Openings",
+    subtitle = paste0(
+      "Prophet predictions for the final ",
+      test_horizon,
+      " observations"
+    ),
+    x = "Date",
+    y = "Job-posting index",
+    color = NULL,
+    caption = paste0(
+      "Dashed red lines show Prophet predictions. ",
+      "Shaded regions show 95% prediction intervals."
+    )
+  ) +
+
+  theme_minimal(base_size = 12) +
+
+  theme(
+    plot.title = element_text(
+      face = "bold",
+      size = 18
+    ),
+    plot.subtitle = element_text(
+      size = 11,
+      color = "gray35"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      size = 11
+    ),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,
+      face = "italic"
+    )
+  )
+
+prophet_actual_vs_predicted_plot
+
+
+```
+
