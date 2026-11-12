@@ -1,13 +1,13 @@
 Model,Job_Openings,Selected_Model,AICc
-ARIMA (baseline),All Job Openings,"ARIMA(1,2,1)(0,0,1)[7]",-3897.623373658892
-ARIMA (baseline),DA Job Openings,"ARIMA(0,2,1)(1,0,1)[7]",-1951.7144092525505
-ARIMA (baseline),SW Job Openings,"ARIMA(1,2,1)(0,0,1)[7]",-1756.5206295207536
+ARIMA (baseline),All Job Openings,"ARIMA(1,2,1)(0,0,1)[7]",-3897.623373658894
+ARIMA (baseline),DA Job Openings,"ARIMA(0,2,1)(1,0,2)[7]",-1948.1067557471938
+ARIMA (baseline),SW Job Openings,"ARIMA(0,2,2)(1,0,2)[7]",-1755.356228516353
 ARIMAX: Stock Prices,All Job Openings,"Regression with ARIMA(2,1,1)(2,0,0)[7] errors",-3554.8569770605427
 ARIMAX: Stock Prices,DA Job Openings,"Regression with ARIMA(1,1,1)(2,0,0)[7] errors",-1660.1730676805107
-ARIMAX: Stock Prices,SW Job Openings,"Regression with ARIMA(2,1,1)(2,0,0)[7] errors",-1398.394058624086
-ARIMAX: Google Trends,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3893.7057430451173
-ARIMAX: Google Trends,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,1)[7] errors",-1947.75768416265
-ARIMAX: Google Trends,SW Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-1752.9518413253295
-ARIMAX: CAPEX + PPI,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3895.760467742068
-ARIMAX: CAPEX + PPI,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,1)[7] errors",-1948.350789186968
-ARIMAX: CAPEX + PPI,SW Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-1753.1489086703928
+ARIMAX: Stock Prices,SW Job Openings,"Regression with ARIMA(1,1,2)(2,0,0)[7] errors",-1398.129686632983
+ARIMAX: Google Trends,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3893.705743044759
+ARIMAX: Google Trends,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,2)[7] errors",-1944.1386756247757
+ARIMAX: Google Trends,SW Job Openings,"Regression with ARIMA(0,2,2)(1,0,2)[7] errors",-1751.7844695181811
+ARIMAX: CAPEX + PPI,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3895.760467742332
+ARIMAX: CAPEX + PPI,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,2)[7] errors",-1944.6334566131245
+ARIMAX: CAPEX + PPI,SW Job Openings,"Regression with ARIMA(0,2,2)(1,0,2)[7] errors",-1752.0194721361295
