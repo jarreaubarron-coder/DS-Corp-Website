@@ -16,7 +16,7 @@ website:
         text: Ridge Regression Forecast Simulator
       - href: DV.qmd
         text: Data Visualization
-      - href: AI_Job_Openings_Time_Series_runs_faster.html
+      - href: AI_Job_Openings_Time_Series_runs_faster.qmd
         text: Time Series Analysis
       - href: DL.qmd
         text: Deep Learning Analysis
