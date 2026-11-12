@@ -1,0 +1,23 @@
+color:
+  palette:
+    georgetown-blue: "#041E42"
+    georgetown-blue-light: "#1F4E8C"
+    georgetown-gray: "#8B8D8E"
+    georgetown-gray-light: "#F2F3F4"
+  foreground: georgetown-blue
+  background: "#FFFFFF"
+  primary: georgetown-blue
+  secondary: georgetown-gray
+  link: georgetown-blue-light
+
+typography:
+  fonts:
+    - family: Source Serif 4
+      source: google
+    - family: Open Sans
+      source: google
+  base: Open Sans
+  headings:
+    family: Source Serif 4
+    weight: 600
+    color: georgetown-blue

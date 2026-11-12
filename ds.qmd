@@ -8,7 +8,7 @@ This page summarizes the main data sources we may use for the project **“How A
 
 ::::::::: source-grid
 ::: source-card
-![](images/logos/fred-logo.png){width="180px"}
+![](Images/logos/fred-logo.png){width="180px"}
 
 ### FRED Economic Data
 
@@ -26,7 +26,7 @@ To study broad labor-market and economic conditions related to data-related job 
 :::
 
 ::: source-card
-![](images/logos/bls-logo.png){width="220px"}
+![](Images/logos/bls-logo.png){width="220px"}
 
 ### BLS Occupational Outlook Handbook
 
@@ -44,7 +44,7 @@ To examine career outlooks for data science, analytics, statistics, computing, a
 :::
 
 ::: source-card
-![](images/logos/google-trends.png){width="160px"}
+![](Images/logos/google-trends.png){width="160px"}
 
 ### Google Trends
 
@@ -62,7 +62,7 @@ To track public interest and upskilling behavior for search terms such as “dat
 :::
 
 ::: source-card
-![](images/logos/beige-book.png){width="220px"}
+![](Images/logos/beige-book.png){width="220px"}
 
 ### Federal Reserve Beige Book
 
@@ -80,7 +80,7 @@ To analyze text-based economic signals related to hiring conditions, workforce t
 :::
 
 ::: source-card
-![](images/logos/google-job.png){width="170px"}
+![](Images/logos/google-job.png){width="170px"}
 
 ### Google Careers Job Postings
 
@@ -96,7 +96,7 @@ To examine how AI-related skills, data-related responsibilities, and technical q
 :::
 
 ::: source-card
-![](images/logos/indeed.png){width="150px"}
+![](Images/logos/indeed.png){width="150px"}
 
 ### Job Posting Data
 
