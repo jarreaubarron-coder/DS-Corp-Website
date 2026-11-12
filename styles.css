@@ -15,10 +15,9 @@
 .site-hero img {
   display: block;
   width: 100%;
+  max-width: 1200px;
   height: auto;
-  max-height: 460px;
-  object-fit: cover;
-  object-position: center top;
+  margin: 0 auto;
 }
 
 /* Navbar */
