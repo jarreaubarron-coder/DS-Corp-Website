@@ -269,12 +269,31 @@ ul.task-list li input[type="checkbox"] {
 <ul>
 <li>Using NLP (Natural Language Processing), we will look for patterns in the key skills mentioned in “entry level” job postings on Google Jobs in the US over the last 5 years.</li>
 </ul>
+</section>
+<section id="v.-forecasting-economic-trends" class="level3">
+<h3 class="anchored" data-anchor-id="v.-forecasting-economic-trends"><strong>V. Forecasting Economic Trends</strong>:</h3>
+<p><em>Data-driven workforce forecasting for transportation infrastructure: A comparative analysis of deep learning and statistical time series models</em></p>
+<p><strong>Authors:</strong> Adedolapo Ogungbire,<br>
+Suman Kumar Mitra, &amp; Sarah Hernandez</p>
+<p><strong>Core Finding:</strong></p>
+<ul>
+<li><p>1-D CNN outperforms ARIMA and LSTM in workforce forecasting accuracy.</p></li>
+<li><p>1-D CNN delivers stable forecasts for both short- and long-term horizons.</p></li>
+<li><p>ARIMA shows strong short-term stability but weak long-term adaptability.</p></li>
+</ul>
+<p><strong>How it informs our project:</strong></p>
+<ul>
+<li>We will compare the performance of 3 traditional models (ARIMA, ARIMAX, &amp; SARIMA) with 3 Deep Learning models (RNN, LSTM, &amp; GRU) in predicting job postings using Root Mean Squared Error (RMSE).</li>
+</ul>
+</section>
+<section id="vi.-literature-review-conclusions" class="level3">
+<h3 class="anchored" data-anchor-id="vi.-literature-review-conclusions"><strong>VI. Literature Review Conclusions</strong>:</h3>
+<p>Existing research has examined AI exposure, employment trends, occupational skill demand, and labor-market forecasting. Our project attempts to bring these areas together by combining job-opening data with technology-related and economic indicators and comparing traditional time-series and deep learning approaches. Future work will extend the analysis to job descriptions using Natural Language Processing (NLP) to investigate how AI-related skill demand is changing over time.</p>
 <hr>
 </section>
 </section>
 <section id="source-orientation" class="level2">
 <h2 class="anchored" data-anchor-id="source-orientation">Source Orientation</h2>
-<p>Briefly document the raw data you intend to use to answer your research questions.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -302,6 +321,12 @@ ul.task-list li input[type="checkbox"] {
 <td>Token Price Index (<a href="https://tokenpriceindex.com/" class="uri">https://tokenpriceindex.com/</a>)</td>
 <td>.csv</td>
 <td>~ 27 x 5</td>
+</tr>
+<tr class="even">
+<td>Nvidia Quarterly Revenue</td>
+<td>NVIDIA (<a href="https://investor.nvidia.com/financial-info/quarterly-results/default.aspx" class="uri">https://investor.nvidia.com/financial-info/quarterly-results/default.aspx</a>)</td>
+<td>.csv</td>
+<td>~60 x 2</td>
 </tr>
 </tbody>
 </table>
@@ -383,7 +408,7 @@ ul.task-list li input[type="checkbox"] {
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp("https:\/\/jarreaubarron-coder\.github\.io\/DS-Corp-Website\/");
+        var filterRegex = new RegExp('/' + window.location.host + '/');
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }

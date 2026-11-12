@@ -1,0 +1,25 @@
+Category,Job_Type,Predictor,Lag,CCF,Approx_95_Bound,Significant,Lag_Interpretation
+Google Trends,All Job Openings,Skill: GT skills,15,-0.056016444420952875,0.045581395348837206,TRUE,Predictor leads job openings
+Google Trends,All Job Openings,Job title: GT jobs,-28,0.05466533757794404,0.045581395348837206,TRUE,Job openings lead predictor
+Google Trends,Data Analysis,Job title: GT jobs,20,-0.02797568829729111,0.045581395348837206,FALSE,Predictor leads job openings
+Google Trends,Data Analysis,Skill: GT skills,-15,-0.008530348734657628,0.045581395348837206,FALSE,Job openings lead predictor
+Google Trends,Software Development,Skill: GT skills,18,0.0268420320531027,0.045581395348837206,FALSE,Predictor leads job openings
+Google Trends,Software Development,Job title: GT jobs,-23,-0.02357681352837269,0.045581395348837206,FALSE,Job openings lead predictor
+Stock Prices,All Job Openings,C3.ai (AI),16,-0.09711453770603601,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,All Job Openings,Alphabet (GOOGL),-2,0.06636849727497698,0.04559372630952507,TRUE,Job openings lead predictor
+Stock Prices,All Job Openings,Microsoft (MSFT),1,0.05308005776681054,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,All Job Openings,NVIDIA (NVDA),-13,-0.03697338904075065,0.04559372630952507,FALSE,Job openings lead predictor
+Stock Prices,Data Analysis,C3.ai (AI),16,-0.08616983525614168,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,Data Analysis,Microsoft (MSFT),21,0.05565380066021545,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,Data Analysis,Alphabet (GOOGL),-2,0.053467082833113945,0.04559372630952507,TRUE,Job openings lead predictor
+Stock Prices,Data Analysis,NVIDIA (NVDA),21,0.027218281026747754,0.04559372630952507,FALSE,Predictor leads job openings
+Stock Prices,Software Development,C3.ai (AI),16,-0.07567518135869769,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,Software Development,Microsoft (MSFT),21,0.05183691261341012,0.04559372630952507,TRUE,Predictor leads job openings
+Stock Prices,Software Development,Alphabet (GOOGL),1,0.04282584217484991,0.04559372630952507,FALSE,Predictor leads job openings
+Stock Prices,Software Development,NVIDIA (NVDA),26,0.025407314444994344,0.04559372630952507,FALSE,Predictor leads job openings
+CAPEX and PPI,All Job Openings,CAPEX,24,-0.17405226790752854,0.045581395348837206,TRUE,Predictor leads job openings
+CAPEX and PPI,All Job Openings,PPI (Information),8,-0.08160139252692997,0.045581395348837206,TRUE,Predictor leads job openings
+CAPEX and PPI,Data Analysis,PPI (Information),14,-0.07146559588231916,0.045581395348837206,TRUE,Predictor leads job openings
+CAPEX and PPI,Data Analysis,CAPEX,10,-0.033102698371047574,0.045581395348837206,FALSE,Predictor leads job openings
+CAPEX and PPI,Software Development,PPI (Information),20,-0.06473030807636035,0.045581395348837206,TRUE,Predictor leads job openings
+CAPEX and PPI,Software Development,CAPEX,-30,0.02566332130770777,0.045581395348837206,FALSE,Job openings lead predictor

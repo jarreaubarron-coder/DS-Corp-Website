@@ -1,0 +1,1990 @@
+---
+title: "AI Adoption and Job-Market Demand: Time-Series Analysis"
+subtitle: "Data analytics, software, and overall U.S. job openings versus Google Trends, technology stocks, CAPEX, PPI, and macroeconomic indicators"
+author: "Dr. Purna Gamage"
+date: today
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+    code-tools: true
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    fig-align: center
+    theme: cosmo
+execute:
+  warning: false
+  error: false
+  message: false
+editor: visual
+---
+
+# Introduction
+
+The rapid growth of generative AI raises important questions about how AI adoption is reflected in labor-market demand, especially for data analytics and software roles. This analysis examines whether public interest, technology market signals, technology investment, and macroeconomic indicators help explain and forecast changes in job openings.
+
+**Research questions**
+
+1.  How do data analytics (DA) and software (SW) job openings differ from overall U.S. job openings (ALL) in their relationship with macroeconomic and technology investment indicators?
+2.  Can public interest and technology investment signals help predict changes in job-market demand for AI- and data-related roles?
+
+**Data**
+
+| Variable(s) | Description | Source |
+|----|----|----|
+| DA, SW, ALL job openings | Daily job-posting indices | Indeed Hiring Lab |
+| Google Trends | Search interest in AI-related job titles and skills | Google Trends |
+| MSFT, C3AI, NVDA, GOOGL | Adjusted closing stock prices | Yahoo Finance |
+| CAPEX, PPI (Information) | Capital expenditure and producer price index (daily-interpolated) | FRED |
+| FEDFUNDS, PCE, PPI (Information) | Monthly macroeconomic indicators | FRED |
+
+**Workflow**
+
+- **Part 1 – Exploratory analysis (daily):** time-series plots, linear regression, and cross-correlation (CCF) in levels and first differences.
+- **Part 2 – Forecasting (daily):** baseline univariate ARIMA and Prophet models versus regression models with ARIMA errors (ARIMAX) using each group of external predictors; test-period accuracy comparison.
+- **Part 3 – Macroeconomic ARIMAX (monthly):** a full Box–Jenkins workflow (EDA, stationarity, regression, SARIMA error modeling, parameter search, time-series cross-validation, diagnostics, final model, and forecasts) for DA job openings using the Federal Funds Rate, PCE, and PPI (Information).
+
+# Setup
+
+```{r}
+#| label: setup
+#| code-fold: show
+
+library(tidyverse)
+library(lubridate)
+library(forecast)
+library(prophet)
+library(patchwork)
+library(broom)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(tseries)
+library(astsa)
+library(plotly)
+library(gridExtra)
+
+# ------------------------------------------------------------
+# Paths (relative to this .qmd file; keep the folder structure)
+#   data/daily/    job openings, Google Trends, stocks, CAPEX, PPI
+#   data/monthly/  FEDFUNDS, PCE, PPI (Information), DA job postings
+# ------------------------------------------------------------
+
+data_folder         <- file.path("data", "daily")
+monthly_data_folder <- file.path("data", "monthly")
+
+# Where figures and CSV results are saved
+output_folder <- "outputs"
+save_outputs  <- TRUE
+
+dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
+
+# ------------------------------------------------------------
+# Analysis settings
+# ------------------------------------------------------------
+
+lag_max          <- 30   # maximum CCF lag (days)
+test_horizon     <- 36   # final observations held out for testing (days)
+forecast_horizon <- 36   # future forecast horizon (days)
+
+# ------------------------------------------------------------
+# Speed settings
+# ------------------------------------------------------------
+
+# FALSE = fast stepwise auto.arima search (seconds per model).
+# TRUE  = exhaustive search (no stepwise, no approximation); much slower
+#         on ~1,800 daily observations (minutes per model).
+exhaustive_search <- FALSE
+
+# TRUE = reuse fitted models saved by a previous render (outputs/model_cache).
+# Set to FALSE, or delete that folder, after changing the data or settings.
+reuse_saved_models <- TRUE
+
+# ------------------------------------------------------------
+# Shared labels, colors, and plot theme
+# ------------------------------------------------------------
+
+job_labels <- c(
+  DA  = "DA Job Openings",
+  SW  = "SW Job Openings",
+  ALL = "All Job Openings"
+)
+
+job_levels <- c("All Job Openings", "DA Job Openings", "SW Job Openings")
+
+col_actual <- "#1F5A94"
+col_pred   <- "#B2182B"
+
+theme_ts <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title       = element_text(face = "bold", size = 17),
+      plot.subtitle    = element_text(size = 11, color = "gray35"),
+      strip.text       = element_text(face = "bold", size = 10),
+      panel.grid.minor = element_blank(),
+      legend.position  = "bottom",
+      plot.caption     = element_text(hjust = 0, face = "italic", color = "gray40")
+    )
+}
+
+save_plot <- function(plot, file_name, width = 13, height = 9) {
+  if (save_outputs) {
+    ggsave(
+      filename = file.path(output_folder, file_name),
+      plot = plot, width = width, height = height, dpi = 300, bg = "white"
+    )
+  }
+}
+
+# Fit once, then reload the saved result on later renders
+cache_folder <- file.path(output_folder, "model_cache")
+dir.create(cache_folder, showWarnings = FALSE, recursive = TRUE)
+
+cached <- function(name, expr) {
+  file <- file.path(cache_folder, paste0(name, ".rds"))
+  if (reuse_saved_models && file.exists(file)) {
+    message("Loaded saved results: ", file)
+    return(readRDS(file))
+  }
+  value <- expr
+  saveRDS(value, file)
+  value
+}
+
+save_table <- function(data, file_name) {
+  if (save_outputs) {
+    write_csv(data, file.path(output_folder, file_name))
+  }
+}
+```
+
+# Data Preparation (Daily)
+
+## Load and merge all sources
+
+Each file is read, its date column is detected and parsed, and every other column is prefixed with the file name so that variables remain identifiable after merging. The datasets are then restricted to their common overlapping period.
+
+```{r}
+#| label: load-data
+
+files <- c(
+  "AI_historical_data.csv",
+  "GOOGL_historical_data.csv",
+  "MSFT_historical_data.csv",
+  "NVDA_historical_data.csv",
+  "all_capex_ppi_daily_interpolated.csv",
+  "GT_jobs_int.csv",
+  "GT_skills_int.csv",
+  "indeed_data_analysis.csv",
+  "indeed-all.csv",
+  "indeed-software.csv"
+)
+
+read_file <- function(filename) {
+
+  data <- read_csv(file.path(data_folder, filename), show_col_types = FALSE)
+
+  # Find the date column
+  date_col <- names(data)[grepl("date|month|time", names(data), ignore.case = TRUE)][1]
+
+  if (is.na(date_col)) {
+    stop("No date column found in: ", filename)
+  }
+
+  # Parse dates in any of the common formats
+  date_values <- as.character(data[[date_col]])
+
+  parsed_dates <- suppressWarnings(
+    as.Date(
+      parse_date_time(
+        date_values,
+        orders = c("ymd", "mdy", "dmy", "ym", "my", "Ymd", "bY", "BY",
+                   "bdy", "Ymd HMS", "ymd HMS")
+      )
+    )
+  )
+
+  if (all(is.na(parsed_dates))) {
+    stop("Dates could not be read in: ", filename,
+         "\nFirst date values: ", paste(head(date_values), collapse = ", "))
+  }
+
+  names(data)[names(data) == date_col] <- "Date"
+  data$Date <- parsed_dates
+
+  # Prefix all other columns with the file name
+  file_prefix <- make.names(tools::file_path_sans_ext(filename))
+
+  data %>%
+    filter(!is.na(Date)) %>%
+    rename_with(~ paste0(file_prefix, "_", .x), -Date)
+}
+
+data_list <- lapply(files, read_file)
+
+# Common overlapping period
+common_start <- max(do.call(c, lapply(data_list, function(x) min(x$Date))))
+common_end   <- min(do.call(c, lapply(data_list, function(x) max(x$Date))))
+
+combined_data <- reduce(data_list, full_join, by = "Date") %>%
+  filter(Date >= common_start, Date <= common_end) %>%
+  arrange(Date)
+
+tibble(
+  Start        = common_start,
+  End          = common_end,
+  Rows         = nrow(combined_data),
+  Columns      = ncol(combined_data)
+) %>%
+  kable(caption = "Common study period") %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Select the analysis variables
+
+```{r}
+#| label: select-columns
+
+get_numeric_columns <- function(pattern) {
+  columns <- grep(pattern, names(combined_data), value = TRUE, ignore.case = TRUE)
+  columns[vapply(columns, function(x) is.numeric(combined_data[[x]]), logical(1))]
+}
+
+get_job_column <- function(pattern) {
+  columns <- get_numeric_columns(pattern)
+  if (length(columns) == 0) return(NA_character_)
+  preferred <- columns[grepl("main[._]?value|job.*opening|posting.*index|value",
+                             columns, ignore.case = TRUE)]
+  if (length(preferred) > 0) preferred[1] else columns[1]
+}
+
+get_stock_column <- function(pattern) {
+  columns <- get_numeric_columns(pattern)
+  if (length(columns) == 0) return(NA_character_)
+  # Prefer adjusted close, otherwise close
+  preferred <- columns[grepl("adj.*close|adjusted.*close", columns, ignore.case = TRUE)]
+  if (length(preferred) == 0) {
+    preferred <- columns[grepl("close", columns, ignore.case = TRUE)]
+  }
+  if (length(preferred) > 0) preferred[1] else columns[1]
+}
+
+# 1. Job-opening series (outcomes)
+job_columns <- c(
+  DA  = get_job_column("^indeed_data_analysis_"),
+  SW  = get_job_column("^indeed[.]software_"),
+  ALL = get_job_column("^indeed[.]all_")
+)
+
+# 2. Google Trends (job titles and skills)
+gt_jobs_columns   <- get_numeric_columns("^GT_jobs_int_")
+gt_skills_columns <- get_numeric_columns("^GT_skills_int_")
+
+google_columns <- c(gt_jobs_columns, gt_skills_columns)
+names(google_columns) <- c(
+  paste0("GT Job: ",   sub("^GT_jobs_int_",   "", gt_jobs_columns)),
+  paste0("GT Skill: ", sub("^GT_skills_int_", "", gt_skills_columns))
+)
+
+# 3. Technology stock prices
+stock_columns <- c(
+  MSFT  = get_stock_column("^MSFT_historical_data_"),
+  C3AI  = get_stock_column("^AI_historical_data_"),
+  NVDA  = get_stock_column("^NVDA_historical_data_"),
+  GOOGL = get_stock_column("^GOOGL_historical_data_")
+)
+
+# 4. CAPEX and PPI
+capex_ppi_columns <- get_numeric_columns("^all_capex_ppi_daily_interpolated_")
+names(capex_ppi_columns) <- sub("^all_capex_ppi_daily_interpolated_", "", capex_ppi_columns)
+
+# All predictors and their groups
+predictor_columns <- c(google_columns, stock_columns, capex_ppi_columns)
+
+predictor_groups <- setNames(
+  c(rep("Google Trends", length(google_columns)),
+    rep("Stock Prices",  length(stock_columns)),
+    rep("CAPEX and PPI", length(capex_ppi_columns))),
+  names(predictor_columns)
+)
+
+if (any(is.na(job_columns)))       stop("One or more job-opening columns could not be identified.")
+if (any(is.na(predictor_columns))) stop("One or more predictor columns could not be identified.")
+
+tibble(
+  Group  = c(rep("Job Openings", length(job_columns)), unname(predictor_groups)),
+  Series = c(names(job_columns), names(predictor_columns)),
+  Column = c(unname(job_columns), unname(predictor_columns))
+) %>%
+  kable(caption = "Variables used in the daily analysis") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
+```
+
+## Build a regularly spaced daily dataset
+
+Stock prices are only observed on trading days, so the merged data are placed on a complete daily calendar (duplicate dates are averaged). Two versions are created:
+
+- `ccf_data`: only *internal* gaps are linearly interpolated (used for CCF).
+- `model_data`: all gaps are filled with `forecast::na.interp()` (used for regression and forecasting models).
+
+```{r}
+#| label: daily-data
+
+needed_columns <- unique(c("Date", unname(job_columns), unname(predictor_columns)))
+
+daily_data <- combined_data %>%
+  select(all_of(needed_columns)) %>%
+  group_by(Date) %>%
+  summarise(
+    across(everything(), ~ if (all(is.na(.x))) NA_real_ else mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  complete(Date = seq(min(Date), max(Date), by = "day")) %>%
+  arrange(Date)
+
+# Interpolate internal gaps only (no extrapolation at the ends)
+interpolate_daily <- function(x, dates) {
+  available <- !is.na(x)
+  if (sum(available) < 2) return(x)
+  approx(
+    x = as.numeric(dates[available]), y = x[available],
+    xout = as.numeric(dates), rule = 1
+  )$y
+}
+
+ccf_data <- daily_data %>%
+  mutate(across(-Date, ~ interpolate_daily(.x, Date)))
+
+model_data <- daily_data %>%
+  mutate(across(-Date, ~ as.numeric(forecast::na.interp(.x))))
+
+tibble(
+  Dataset = c("ccf_data", "model_data"),
+  Days    = c(nrow(ccf_data), nrow(model_data)),
+  Missing_values = c(sum(is.na(ccf_data[-1])), sum(is.na(model_data[-1])))
+) %>%
+  kable(caption = "Daily datasets") %>%
+  kable_styling(full_width = FALSE)
+```
+
+# Part 1 – Exploratory Analysis
+
+## Time-series plots
+
+Each figure places the three job-opening series above one group of external predictors on a shared time axis. Every panel has its own vertical scale.
+
+```{r}
+#| label: eda-helper
+
+clean_gt_label <- function(x) {
+  x %>%
+    str_replace("^GT Job: ", "Job title: ") %>%
+    str_replace("^GT Skill: ", "Skill: ") %>%
+    str_replace_all("[_.]", " ")
+}
+
+job_lookup <- tibble(
+  Column = unname(job_columns),
+  Series = c(DA  = "Data Analysis Job Openings",
+             SW  = "Software Development Job Openings",
+             ALL = "All Job Openings")[names(job_columns)]
+)
+
+plot_jobs_with <- function(pred_lookup, pred_title, pred_subtitle,
+                           pred_color, figure_title) {
+
+  lookup <- bind_rows(
+    job_lookup  %>% mutate(Group = "Job Openings"),
+    pred_lookup %>% mutate(Group = "Predictors")
+  )
+
+  long_data <- daily_data %>%
+    select(Date, all_of(lookup$Column)) %>%
+    pivot_longer(-Date, names_to = "Column", values_to = "Value") %>%
+    left_join(lookup, by = "Column") %>%
+    filter(!is.na(Value)) %>%
+    mutate(Series = factor(Series, levels = unique(lookup$Series)))
+
+  date_limits <- range(long_data$Date)
+
+  make_panel <- function(group, color, title, subtitle, show_x) {
+    long_data %>%
+      filter(Group == group) %>%
+      ggplot(aes(Date, Value)) +
+      geom_line(linewidth = 0.7, color = color) +
+      facet_grid(Series ~ ., scales = "free_y", switch = "y") +
+      scale_x_date(limits = date_limits, date_breaks = "6 months",
+                   date_labels = "%b %Y", expand = expansion(mult = 0.01)) +
+      labs(title = title, subtitle = subtitle,
+           x = if (show_x) "Date" else NULL, y = NULL) +
+      theme_ts() +
+      theme(
+        strip.placement   = "outside",
+        strip.background  = element_blank(),
+        strip.text.y.left = element_text(angle = 0, hjust = 1, face = "bold", size = 9),
+        axis.text.x       = if (show_x) element_text(angle = 45, hjust = 1) else element_blank(),
+        axis.ticks.x      = if (show_x) element_line() else element_blank()
+      )
+  }
+
+  top <- make_panel("Job Openings", col_actual, "Job Openings",
+                    "Daily posting indices for data analysis, software, and all jobs",
+                    show_x = FALSE)
+
+  bottom <- make_panel("Predictors", pred_color, pred_title, pred_subtitle,
+                       show_x = TRUE)
+
+  (top / bottom) +
+    plot_layout(heights = c(3, nrow(pred_lookup))) +
+    plot_annotation(
+      title = figure_title,
+      subtitle = "Each panel uses its own vertical scale; all panels share the same time axis",
+      theme = theme(plot.title = element_text(face = "bold", size = 20),
+                    plot.subtitle = element_text(size = 12, color = "gray35"))
+    )
+}
+```
+
+### Job openings and Google search interest
+
+```{r}
+#| label: eda-google
+#| fig-width: 13
+#| fig-height: 16
+
+google_lookup <- tibble(
+  Column = unname(google_columns),
+  Series = clean_gt_label(names(google_columns))
+)
+
+fig_jo_google <- plot_jobs_with(
+  google_lookup,
+  pred_title    = "Google Search Interest",
+  pred_subtitle = "Search-interest indices for AI-related job titles and technical skills",
+  pred_color    = "#D55E00",
+  figure_title  = "Job Openings and Google Search Interest Over Time"
+)
+
+fig_jo_google
+save_plot(fig_jo_google, "EDA_Job_Openings_vs_Google_Trends.png", height = 16)
+```
+
+### Job openings and technology stock prices
+
+```{r}
+#| label: eda-stocks
+#| fig-width: 13
+#| fig-height: 12
+
+stock_lookup <- tibble(
+  Column = unname(stock_columns),
+  Series = c(MSFT = "Microsoft (MSFT)", C3AI = "C3.ai (AI)",
+             NVDA = "NVIDIA (NVDA)",    GOOGL = "Alphabet (GOOGL)")[names(stock_columns)]
+)
+
+fig_jo_stocks <- plot_jobs_with(
+  stock_lookup,
+  pred_title    = "Technology Stock Prices",
+  pred_subtitle = "Adjusted closing prices for Microsoft, C3.ai, NVIDIA, and Alphabet",
+  pred_color    = "#2E7D5B",
+  figure_title  = "Job Openings and Technology Stock Prices Over Time"
+)
+
+fig_jo_stocks
+save_plot(fig_jo_stocks, "EDA_Job_Openings_vs_Stocks.png", height = 12)
+```
+
+### Job openings and economic indicators (CAPEX and PPI)
+
+```{r}
+#| label: eda-capex
+#| fig-width: 13
+#| fig-height: 10
+
+economic_lookup <- tibble(
+  Column = unname(capex_ppi_columns),
+  Series = case_when(
+    grepl("capex",   names(capex_ppi_columns), ignore.case = TRUE) ~ "Capital Expenditure (CAPEX)",
+    grepl("PCU|PPI", names(capex_ppi_columns), ignore.case = TRUE) ~ "Producer Price Index (PPI)",
+    TRUE ~ names(capex_ppi_columns)
+  )
+)
+
+fig_jo_econ <- plot_jobs_with(
+  economic_lookup,
+  pred_title    = "Economic Indicators",
+  pred_subtitle = "Capital expenditure and producer price index over the common study period",
+  pred_color    = "#B45F06",
+  figure_title  = "Job Openings and Economic Indicators Over Time"
+)
+
+fig_jo_econ
+save_plot(fig_jo_econ, "EDA_Job_Openings_vs_CAPEX_PPI.png", height = 10)
+```
+
+## Linear regression
+
+As a first look at explanatory power, each job-opening series is regressed on each predictor group separately (contemporaneous values, no time-series error structure). Because these are trending series, the R² values describe co-movement and should not be read as causal effects; residual autocorrelation is addressed in Parts 2 and 3.
+
+```{r}
+#| label: regression
+
+fit_models <- function(predictors) {
+  lapply(job_columns, function(outcome) {
+    model_formula <- as.formula(
+      paste0("`", outcome, "` ~ ", paste0("`", unname(predictors), "`", collapse = " + "))
+    )
+    lm(model_formula, data = model_data)
+  })
+}
+
+regression_models <- list(
+  "Google Trends" = fit_models(google_columns),
+  "Stock Prices"  = fit_models(stock_columns),
+  "CAPEX and PPI" = fit_models(capex_ppi_columns)
+)
+
+regression_results <- imap_dfr(regression_models, function(models, group) {
+  imap_dfr(models, function(model, job) {
+    fit <- glance(model)
+    tibble(
+      Predictor_Group = group,
+      Job_Openings    = job_labels[[job]],
+      R_Squared       = fit$r.squared,
+      Adj_R_Squared   = fit$adj.r.squared,
+      RMSE            = sqrt(mean(residuals(model)^2)),
+      AIC             = fit$AIC,
+      N               = nobs(model)
+    )
+  })
+})
+
+save_table(regression_results, "Regression_Model_Summary.csv")
+
+regression_results %>%
+  kable(digits = 3, caption = "Linear regression of job openings on each predictor group") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+::: {.callout-note collapse="true" title="Full regression summaries"}
+```{r}
+#| label: regression-summaries
+
+for (group in names(regression_models)) {
+  for (job in names(regression_models[[group]])) {
+    cat("\n==========", group, "->", job_labels[[job]], "==========\n")
+    print(summary(regression_models[[group]][[job]]))
+  }
+}
+```
+:::
+
+## Cross-correlation analysis (CCF)
+
+We use the CCF to examine lead–lag dependence between job openings and each external signal. The sample CCF at lag $k$ estimates $\text{cor}(\text{Job}_{t+k}, X_t)$, so:
+
+- **positive lags** → the predictor *leads* job openings,
+- **negative lags** → job openings lead the predictor,
+- **lag 0** → same-day relationship.
+
+Approximate 95% significance limits are $\pm 1.96/\sqrt{N}$.
+
+::: callout-important
+**CCF on raw levels can be misleading.** When two series are trending or nonstationary, they can appear strongly correlated at every lag simply because they share a trend. We therefore report the CCF on levels for completeness, and then on **first-differenced** series (daily changes), which is the more reliable basis for identifying lead–lag structure. Prewhitening is a further refinement.
+:::
+
+```{r}
+#| label: ccf-helpers
+
+compute_ccf <- function(data, lag_max) {
+
+  results <- list()
+
+  for (job_name in names(job_columns)) {
+    for (predictor_name in names(predictor_columns)) {
+
+      pair <- data %>%
+        select(job  = all_of(job_columns[[job_name]]),
+               pred = all_of(predictor_columns[[predictor_name]])) %>%
+        drop_na()
+
+      if (nrow(pair) > lag_max + 2 && sd(pair$job) > 0 && sd(pair$pred) > 0) {
+
+        cc <- ccf(pair$job, pair$pred, lag.max = lag_max, plot = FALSE)
+
+        results[[length(results) + 1]] <- tibble(
+          Category        = predictor_groups[[predictor_name]],
+          Job_Openings    = job_name,
+          Predictor       = predictor_name,
+          Lag             = as.numeric(cc$lag),
+          CCF             = as.numeric(cc$acf),
+          N               = nrow(pair),
+          Approx_95_Bound = 1.96 / sqrt(nrow(pair))
+        )
+      }
+    }
+  }
+
+  bind_rows(results) %>%
+    mutate(Significant = abs(CCF) > Approx_95_Bound)
+}
+
+label_ccf <- function(ccf_df) {
+  ccf_df %>%
+    mutate(
+      Job_Type = factor(
+        recode(Job_Openings, DA = "Data Analysis", SW = "Software Development",
+               ALL = "All Job Openings"),
+        levels = c("All Job Openings", "Data Analysis", "Software Development")
+      ),
+      Predictor_Label = case_when(
+        Category == "Google Trends" ~ clean_gt_label(Predictor),
+        Predictor == "MSFT"  ~ "Microsoft (MSFT)",
+        Predictor == "C3AI"  ~ "C3.ai (AI)",
+        Predictor == "NVDA"  ~ "NVIDIA (NVDA)",
+        Predictor == "GOOGL" ~ "Alphabet (GOOGL)",
+        grepl("PCU|PPI", Predictor, ignore.case = TRUE) ~ "PPI (Information)",
+        grepl("CAPEX",   Predictor, ignore.case = TRUE) ~ "CAPEX",
+        TRUE ~ Predictor
+      ),
+      Category = factor(Category, levels = c("Google Trends", "Stock Prices", "CAPEX and PPI"))
+    )
+}
+
+# Strongest absolute CCF for each job x predictor pair
+ccf_peaks <- function(ccf_df) {
+  ccf_df %>%
+    group_by(Category, Job_Type, Predictor_Label) %>%
+    slice_max(abs(CCF), n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    mutate(
+      Lag_Interpretation = case_when(
+        Lag > 0 ~ "Predictor leads job openings",
+        Lag < 0 ~ "Job openings lead predictor",
+        TRUE    ~ "Same-day relationship"
+      )
+    ) %>%
+    arrange(Category, Job_Type, desc(abs(CCF))) %>%
+    select(Category, Job_Type, Predictor = Predictor_Label, Lag, CCF,
+           Approx_95_Bound, Significant, Lag_Interpretation)
+}
+
+# Heatmap of all CCF values
+ccf_heatmap <- function(ccf_df, title, subtitle) {
+  ggplot(ccf_df, aes(Lag, Predictor_Label, fill = CCF)) +
+    geom_tile(color = "white", linewidth = 0.2) +
+    geom_vline(xintercept = 0, color = "black", linewidth = 0.6) +
+    facet_grid(Category ~ Job_Type, scales = "free_y", space = "free_y", switch = "y") +
+    scale_fill_gradient2(low = "#3B4CC0", mid = "#F7F7F7", high = "#B40426",
+                         midpoint = 0, limits = c(-1, 1), oob = squish,
+                         breaks = seq(-1, 1, 0.5), name = "CCF") +
+    scale_x_continuous(breaks = seq(-20, 20, 10), expand = c(0, 0)) +
+    labs(title = title, subtitle = subtitle, x = "Lag in days", y = NULL,
+         caption = paste0("Blue = negative, red = positive correlation. ",
+                          "Positive lags indicate that the external indicator leads job openings.")) +
+    theme_ts() +
+    theme(panel.grid = element_blank(),
+          strip.placement = "outside",
+          strip.text.y.left = element_text(angle = 0, face = "bold"),
+          axis.text.y = element_text(size = 8.5),
+          legend.position = "right")
+}
+
+# Stem plots; significant lags are highlighted
+ccf_stem_plot <- function(ccf_df, title, subtitle, facet = c("grid", "wrap")) {
+
+  facet  <- match.arg(facet)
+  bounds <- ccf_df %>% distinct(Job_Type, Predictor_Label, Approx_95_Bound)
+
+  p <- ggplot(ccf_df, aes(Lag, CCF)) +
+    geom_hline(yintercept = 0, linewidth = 0.4) +
+    geom_hline(data = bounds, aes(yintercept =  Approx_95_Bound),
+               linetype = "dashed", linewidth = 0.45, color = "steelblue") +
+    geom_hline(data = bounds, aes(yintercept = -Approx_95_Bound),
+               linetype = "dashed", linewidth = 0.45, color = "steelblue") +
+    geom_segment(aes(xend = Lag, y = 0, yend = CCF, color = Significant), linewidth = 0.6) +
+    geom_vline(xintercept = 0, linewidth = 0.5) +
+    scale_color_manual(values = c(`TRUE` = "#3B4CC0", `FALSE` = "gray65"),
+                       labels = c(`TRUE` = "Outside 95% limits", `FALSE` = "Within limits"),
+                       name = NULL) +
+    scale_x_continuous(breaks = seq(-lag_max, lag_max, 10)) +
+    coord_cartesian(ylim = c(-1, 1)) +
+    labs(title = title, subtitle = subtitle, x = "Lag in days",
+         y = "Cross-correlation coefficient",
+         caption = paste0("Dashed lines show approximate 95% limits. ",
+                          "Positive lags indicate that the predictor leads job openings.")) +
+    theme_ts()
+
+  if (facet == "grid") {
+    p + facet_grid(rows = vars(Job_Type), cols = vars(Predictor_Label))
+  } else {
+    p + facet_wrap(~ Predictor_Label, ncol = 3)
+  }
+}
+```
+
+### CCF on levels
+
+```{r}
+#| label: ccf-levels
+#| fig-width: 15
+#| fig-height: 12
+
+ccf_levels <- compute_ccf(ccf_data, lag_max) %>% label_ccf()
+save_table(ccf_levels, "CCF_levels_all_values.csv")
+
+fig_ccf_levels_heat <- ccf_heatmap(
+  ccf_levels,
+  title    = "Cross-Correlation of Job Openings with External Indicators (Levels)",
+  subtitle = "Google search interest, technology stock prices, CAPEX, and PPI"
+)
+
+fig_ccf_levels_heat
+save_plot(fig_ccf_levels_heat, "CCF_levels_heatmap.png", width = 15, height = 12)
+```
+
+The near-uniform colour across lags in the levels heatmap is the signature of shared trends rather than a genuine lead–lag relationship, which motivates differencing.
+
+### CCF on first differences
+
+```{r}
+#| label: ccf-diff
+
+ccf_data_diff <- ccf_data %>%
+  arrange(Date) %>%
+  mutate(across(-Date, ~ .x - dplyr::lag(.x))) %>%
+  slice(-1)
+
+ccf_diff <- compute_ccf(ccf_data_diff, lag_max) %>% label_ccf()
+save_table(ccf_diff, "CCF_first_difference_all_values.csv")
+```
+
+```{r}
+#| label: ccf-diff-heatmap
+#| fig-width: 15
+#| fig-height: 12
+
+fig_ccf_diff_heat <- ccf_heatmap(
+  ccf_diff,
+  title    = "Cross-Correlation of Daily Changes in Job Openings and External Indicators",
+  subtitle = "All variables first-differenced before computing the CCF"
+)
+
+fig_ccf_diff_heat
+save_plot(fig_ccf_diff_heat, "CCF_first_difference_heatmap.png", width = 15, height = 12)
+```
+
+#### Google Trends
+
+```{r}
+#| label: ccf-diff-google
+#| fig-width: 13
+#| fig-height: 10
+
+for (job in levels(ccf_diff$Job_Type)) {
+
+  p <- ccf_diff %>%
+    filter(Category == "Google Trends", Job_Type == job) %>%
+    ccf_stem_plot(
+      title    = paste0("First-Difference CCF: ", job, " vs Google Search Interest"),
+      subtitle = "Daily changes in job openings versus daily changes in search interest",
+      facet    = "wrap"
+    )
+
+  print(p)
+  save_plot(p, paste0("CCF_diff_", gsub("[^A-Za-z0-9]+", "_", job), "_vs_Google_Trends.png"))
+}
+```
+
+#### Technology stock prices
+
+```{r}
+#| label: ccf-diff-stocks
+#| fig-width: 13
+#| fig-height: 9
+
+fig_ccf_diff_stocks <- ccf_diff %>%
+  filter(Category == "Stock Prices") %>%
+  ccf_stem_plot(
+    title    = "First-Difference CCF: Job Openings vs Technology Stock Prices",
+    subtitle = "Daily changes in C3.ai, Alphabet, Microsoft, and NVIDIA"
+  )
+
+fig_ccf_diff_stocks
+save_plot(fig_ccf_diff_stocks, "CCF_diff_Job_Openings_vs_Stocks.png")
+```
+
+#### CAPEX and PPI
+
+```{r}
+#| label: ccf-diff-capex
+#| fig-width: 11
+#| fig-height: 9
+
+fig_ccf_diff_capex <- ccf_diff %>%
+  filter(Category == "CAPEX and PPI") %>%
+  ccf_stem_plot(
+    title    = "First-Difference CCF: Job Openings vs CAPEX and PPI",
+    subtitle = "Daily changes in capital expenditure and the producer price index"
+  )
+
+fig_ccf_diff_capex
+save_plot(fig_ccf_diff_capex, "CCF_diff_Job_Openings_vs_CAPEX_PPI.png", width = 11)
+```
+
+#### Strongest lead–lag relationships
+
+```{r}
+#| label: ccf-peaks
+
+peak_levels <- ccf_peaks(ccf_levels)
+peak_diff   <- ccf_peaks(ccf_diff)
+
+save_table(peak_levels, "CCF_levels_peak_values.csv")
+save_table(peak_diff,   "CCF_first_difference_peak_values.csv")
+
+peak_diff %>%
+  kable(digits = 3,
+        caption = "Strongest first-difference CCF for each job-opening / predictor pair") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  collapse_rows(columns = 1:2, valign = "top") %>%
+  scroll_box(height = "500px")
+```
+
+# Part 2 – Forecasting Job Openings (Daily)
+
+## Design
+
+The final `r test_horizon` days are held out as a test period. Every model is fitted on the training period only and then used to predict the test period.
+
+| Model | Predictors | Purpose |
+|----|----|----|
+| Univariate ARIMA (`auto.arima`) | None (own history) | Baseline |
+| Prophet | None (trend + weekly/yearly seasonality) | Baseline |
+| Regression + ARIMA errors | Technology stock prices | External signal |
+| Regression + ARIMA errors | Google Trends | External signal |
+| Regression + ARIMA errors | CAPEX + PPI | External signal |
+
+Daily series are modelled with weekly seasonality (`frequency = 7`). The regression-with-ARIMA-error models use the **observed** predictor values in the test period (ex-post forecasts), so they measure how much the predictors explain out of sample rather than a fully operational forecast.
+
+```{r}
+#| label: forecast-helpers
+
+# Fit on the training window and predict the test window.
+# Returns the model plus fitted (training) and predicted (test) values.
+fit_and_forecast <- function(y, xreg = NULL, h = test_horizon) {
+
+  n         <- length(y)
+  train_end <- n - h
+  y_train   <- ts(y[1:train_end], frequency = 7)
+
+  if (is.null(xreg)) {
+    model <- auto.arima(y_train, seasonal = TRUE,
+                        stepwise = !exhaustive_search, approximation = !exhaustive_search)
+    fc <- forecast(model, h = h, level = 95)
+  } else {
+    xreg <- as.matrix(xreg)
+    storage.mode(xreg) <- "double"
+    model <- auto.arima(y_train, xreg = xreg[1:train_end, , drop = FALSE],
+                        seasonal = TRUE, stepwise = !exhaustive_search, approximation = !exhaustive_search)
+    fc <- forecast(model, xreg = xreg[(train_end + 1):n, , drop = FALSE], level = 95)
+  }
+
+  list(
+    model = model,
+    results = tibble(
+      Actual           = y,
+      Fitted_Predicted = c(as.numeric(fitted(model)), as.numeric(fc$mean)),
+      Lower_95         = c(rep(NA_real_, train_end), as.numeric(fc$lower[, 1])),
+      Upper_95         = c(rep(NA_real_, train_end), as.numeric(fc$upper[, 1])),
+      Period           = rep(c("Training", "Test"), c(train_end, h))
+    )
+  )
+}
+
+# Actual vs predicted plot: test period only, or the whole series
+plot_actual_vs_predicted <- function(pred_df, title, subtitle, whole = FALSE) {
+
+  pred_name  <- if (whole) "Fitted / Predicted" else "Predicted"
+  test_start <- min(pred_df$Date[pred_df$Period == "Test"])
+  df         <- if (whole) pred_df else filter(pred_df, Period == "Test")
+
+  long_df <- df %>%
+    select(Date, Job_Type, Actual, Fitted_Predicted) %>%
+    pivot_longer(c(Actual, Fitted_Predicted), names_to = "Series", values_to = "Value") %>%
+    mutate(Series = if_else(Series == "Actual", "Actual", pred_name))
+
+  p <- ggplot(df, aes(x = Date))
+
+  if (!whole) {
+    p <- p + geom_ribbon(aes(ymin = Lower_95, ymax = Upper_95),
+                         fill = "gray70", alpha = 0.35)
+  } else {
+    p <- p + geom_vline(xintercept = test_start, color = "gray40",
+                        linetype = "dotted", linewidth = 0.7)
+  }
+
+  p +
+    geom_line(data = long_df, aes(y = Value, color = Series, linetype = Series),
+              linewidth = if (whole) 0.6 else 0.9) +
+    facet_grid(Job_Type ~ ., scales = "free_y") +
+    scale_color_manual(values = setNames(c(col_actual, col_pred), c("Actual", pred_name))) +
+    scale_linetype_manual(values = setNames(c("solid", "dashed"), c("Actual", pred_name))) +
+    labs(
+      title = title, subtitle = subtitle,
+      x = "Date", y = "Job-posting index", color = NULL, linetype = NULL,
+      caption = if (whole) {
+        "Dashed line: fitted values (training) and predictions (test). Dotted vertical line marks the start of the test period."
+      } else {
+        paste0("The final ", test_horizon, " days were used as the test period. Shaded regions are 95% prediction intervals.")
+      }
+    ) +
+    theme_ts()
+}
+```
+
+## Baseline models (job openings only)
+
+### Univariate ARIMA: future forecasts
+
+Separate `auto.arima` models are fitted to the full history of each series to show the next `r forecast_horizon` days.
+
+```{r}
+#| label: arima-future
+#| fig-width: 12
+#| fig-height: 9
+
+arima_full_models <- cached("arima_full_models", lapply(job_columns, function(column_name) {
+  auto.arima(ts(model_data[[column_name]], frequency = 7),
+             seasonal = TRUE, stepwise = !exhaustive_search, approximation = !exhaustive_search)
+}))
+
+future_dates <- seq(max(model_data$Date) + 1, by = "day", length.out = forecast_horizon)
+
+arima_future <- imap_dfr(arima_full_models, function(model, job) {
+  fc <- forecast(model, h = forecast_horizon, level = c(80, 95))
+  tibble(
+    Date = future_dates, Forecast = as.numeric(fc$mean),
+    Lower_80 = as.numeric(fc$lower[, "80%"]), Upper_80 = as.numeric(fc$upper[, "80%"]),
+    Lower_95 = as.numeric(fc$lower[, "95%"]), Upper_95 = as.numeric(fc$upper[, "95%"]),
+    Job_Type = job_labels[[job]]
+  )
+}) %>%
+  mutate(Job_Type = factor(Job_Type, levels = job_levels))
+
+arima_history <- imap_dfr(job_columns, function(column_name, job) {
+  tibble(Date = model_data$Date, Value = model_data[[column_name]],
+         Job_Type = job_labels[[job]])
+}) %>%
+  mutate(Job_Type = factor(Job_Type, levels = job_levels))
+
+fig_arima_future <- ggplot() +
+  geom_line(data = arima_history, aes(Date, Value), linewidth = 0.6, color = col_actual) +
+  geom_ribbon(data = arima_future, aes(Date, ymin = Lower_95, ymax = Upper_95),
+              fill = "#9ECAE1", alpha = 0.35) +
+  geom_ribbon(data = arima_future, aes(Date, ymin = Lower_80, ymax = Upper_80),
+              fill = "#4292C6", alpha = 0.40) +
+  geom_line(data = arima_future, aes(Date, Forecast), linewidth = 0.9, color = col_pred) +
+  geom_vline(xintercept = max(model_data$Date), linetype = "dashed", color = "gray35") +
+  facet_grid(Job_Type ~ ., scales = "free_y") +
+  labs(title = "Univariate ARIMA Forecasts for Job Openings",
+       subtitle = paste0("Separate auto.arima models with ", forecast_horizon, "-day forecasts"),
+       x = "Date", y = "Job-posting index",
+       caption = "Red lines show forecasts; dark and light bands are 80% and 95% prediction intervals.") +
+  theme_ts()
+
+fig_arima_future
+save_plot(fig_arima_future, "ARIMA_future_forecasts.png", width = 12)
+
+arima_full_models
+```
+
+### Fit all test-period models
+
+```{r}
+#| label: fit-all-models
+
+predictor_sets <- list(
+  "ARIMA (baseline)"       = NULL,
+  "ARIMAX: Stock Prices"   = stock_columns,
+  "ARIMAX: Google Trends"  = google_columns,
+  "ARIMAX: CAPEX + PPI"    = capex_ppi_columns
+)
+
+forecast_runs <- cached("forecast_runs", local({
+
+forecast_runs <- list()
+
+for (set_name in names(predictor_sets)) {
+
+  forecast_runs[[set_name]] <- list()
+  xcols <- predictor_sets[[set_name]]
+
+  for (job_name in names(job_columns)) {
+
+    run <- fit_and_forecast(
+      y    = model_data[[job_columns[[job_name]]]],
+      xreg = if (is.null(xcols)) NULL else model_data[, unname(xcols)]
+    )
+
+    run$results <- run$results %>%
+      mutate(Date = model_data$Date, Model = set_name,
+             Job_Type = job_labels[[job_name]], .before = 1)
+
+    forecast_runs[[set_name]][[job_name]] <- run
+  }
+}
+
+forecast_runs
+}))
+
+# ------------------------------------------------------------
+# Prophet baseline (training data only)
+# ------------------------------------------------------------
+
+prophet_results <- cached("prophet_results", local({
+
+prophet_results <- list()
+
+for (job_name in names(job_columns)) {
+
+  series_data <- tibble(ds = model_data$Date,
+                        y  = model_data[[job_columns[[job_name]]]])
+
+  train_end  <- nrow(series_data) - test_horizon
+  train_data <- series_data[1:train_end, ]
+
+  model <- prophet(train_data,
+                   daily.seasonality = FALSE, weekly.seasonality = TRUE,
+                   yearly.seasonality = TRUE, interval.width = 0.95)
+
+  pred <- predict(model, series_data %>% select(ds))
+
+  prophet_results[[job_name]] <- tibble(
+    Date             = series_data$ds,
+    Model            = "Prophet (baseline)",
+    Job_Type         = job_labels[[job_name]],
+    Actual           = series_data$y,
+    Fitted_Predicted = pred$yhat,
+    Lower_95         = if_else(seq_len(nrow(series_data)) > train_end, pred$yhat_lower, NA_real_),
+    Upper_95         = if_else(seq_len(nrow(series_data)) > train_end, pred$yhat_upper, NA_real_),
+    Period           = rep(c("Training", "Test"), c(train_end, test_horizon))
+  )
+}
+
+prophet_results
+}))
+
+# ------------------------------------------------------------
+# All predictions in one table
+# ------------------------------------------------------------
+
+model_order <- c("ARIMA (baseline)", "Prophet (baseline)", "ARIMAX: Stock Prices",
+                 "ARIMAX: Google Trends", "ARIMAX: CAPEX + PPI")
+
+all_predictions <- bind_rows(
+  map_dfr(forecast_runs, ~ map_dfr(.x, "results")),
+  bind_rows(prophet_results)
+) %>%
+  mutate(Job_Type = factor(Job_Type, levels = job_levels),
+         Model    = factor(Model, levels = model_order))
+
+save_table(all_predictions, "All_model_predictions.csv")
+
+get_predictions <- function(model_name) filter(all_predictions, Model == model_name)
+```
+
+### Univariate ARIMA: actual vs predicted
+
+```{r}
+#| label: arima-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMA (baseline)"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = paste0("Univariate auto.arima predictions for the final ", test_horizon, " days")
+)
+fig
+save_plot(fig, "ARIMA_baseline_actual_vs_predicted.png", width = 12)
+```
+
+### Prophet: actual vs predicted
+
+```{r}
+#| label: prophet-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("Prophet (baseline)"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = paste0("Prophet predictions for the final ", test_horizon, " days")
+)
+fig
+save_plot(fig, "Prophet_baseline_actual_vs_predicted.png", width = 12)
+```
+
+## Regression with ARIMA errors (ARIMAX)
+
+The model for each job-opening series is
+
+$$
+y_t = \beta_0 + \boldsymbol{\beta}^\top \mathbf{x}_t + n_t, \qquad n_t \sim \text{(S)ARIMA}(p,d,q)(P,D,Q)_7,
+$$
+
+where $\mathbf{x}_t$ is one group of external predictors and the ARIMA orders for the error process are chosen by `auto.arima`.
+
+### Job openings vs. technology stock prices
+
+::: panel-tabset
+#### Test period
+
+```{r}
+#| label: arimax-stock-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: Stock Prices"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using Microsoft, C3.ai, NVIDIA, and Alphabet stock prices"
+)
+fig
+save_plot(fig, "ARIMAX_Stocks_test_actual_vs_predicted.png", width = 12)
+```
+
+#### Whole series
+
+```{r}
+#| label: arimax-stock-whole
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: Stock Prices"),
+  title = "Actual Versus Fitted/Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using technology stock prices",
+  whole = TRUE
+)
+fig
+save_plot(fig, "ARIMAX_Stocks_whole_actual_vs_predicted.png", width = 12)
+```
+:::
+
+### Job openings vs. Google Trends
+
+::: panel-tabset
+#### Test period
+
+```{r}
+#| label: arimax-google-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: Google Trends"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using Google Trends search-interest variables"
+)
+fig
+save_plot(fig, "ARIMAX_Google_Trends_test_actual_vs_predicted.png", width = 12)
+```
+
+#### Whole series
+
+```{r}
+#| label: arimax-google-whole
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: Google Trends"),
+  title = "Actual Versus Fitted/Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using Google Trends search-interest variables",
+  whole = TRUE
+)
+fig
+save_plot(fig, "ARIMAX_Google_Trends_whole_actual_vs_predicted.png", width = 12)
+```
+:::
+
+### Job openings vs. CAPEX + PPI
+
+::: panel-tabset
+#### Test period
+
+```{r}
+#| label: arimax-capex-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: CAPEX + PPI"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using CAPEX and the Producer Price Index"
+)
+fig
+save_plot(fig, "ARIMAX_CAPEX_PPI_test_actual_vs_predicted.png", width = 12)
+```
+
+#### Whole series
+
+```{r}
+#| label: arimax-capex-whole
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: CAPEX + PPI"),
+  title = "Actual Versus Fitted/Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using CAPEX and the Producer Price Index",
+  whole = TRUE
+)
+fig
+save_plot(fig, "ARIMAX_CAPEX_PPI_whole_actual_vs_predicted.png", width = 12)
+```
+:::
+
+### Selected models
+
+```{r}
+#| label: selected-models
+
+extract_model_description <- function(model) {
+  output <- capture.output(print(model))
+  trimws(output[grepl("Regression with ARIMA|ARIMA\\(", output)][1])
+}
+
+selected_models <- imap_dfr(forecast_runs, function(runs, set_name) {
+  imap_dfr(runs, function(run, job_name) {
+    tibble(
+      Model          = set_name,
+      Job_Openings   = job_labels[[job_name]],
+      Selected_Model = extract_model_description(run$model),
+      AICc           = run$model$aicc
+    )
+  })
+}) %>%
+  mutate(Job_Openings = factor(Job_Openings, levels = job_levels)) %>%
+  arrange(factor(Model, levels = model_order), Job_Openings)
+
+save_table(selected_models, "Selected_ARIMA_models.csv")
+
+selected_models %>%
+  kable(digits = 1, caption = "Models selected by auto.arima (training period)",
+        col.names = c("Model", "Job Openings", "Selected Model", "AICc")) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+::: {.callout-note collapse="true" title="Full model summaries (coefficients and training accuracy)"}
+```{r}
+#| label: model-summaries
+
+for (set_name in names(forecast_runs)) {
+  for (job_name in names(forecast_runs[[set_name]])) {
+    cat("\n==========", set_name, "->", job_labels[[job_name]], "==========\n")
+    print(summary(forecast_runs[[set_name]][[job_name]]$model))
+  }
+}
+```
+:::
+
+## Model comparison
+
+### Test-period accuracy
+
+```{r}
+#| label: accuracy
+
+accuracy_table <- all_predictions %>%
+  filter(Period == "Test") %>%
+  group_by(Job_Type, Model) %>%
+  summarise(
+    RMSE = sqrt(mean((Actual - Fitted_Predicted)^2, na.rm = TRUE)),
+    MAE  = mean(abs(Actual - Fitted_Predicted), na.rm = TRUE),
+    MAPE = mean(if_else(Actual != 0, abs((Actual - Fitted_Predicted) / Actual), NA_real_),
+                na.rm = TRUE) * 100,
+    .groups = "drop"
+  ) %>%
+  group_by(Job_Type) %>%
+  mutate(
+    RMSE_vs_ARIMA = 100 * (RMSE / RMSE[Model == "ARIMA (baseline)"] - 1),
+    Best          = RMSE == min(RMSE)
+  ) %>%
+  ungroup() %>%
+  arrange(Job_Type, Model)
+
+save_table(accuracy_table, "Test_accuracy_all_models.csv")
+
+accuracy_table %>%
+  select(-Best) %>%
+  kable(digits = 3,
+        col.names = c("Job Openings", "Model", "RMSE", "MAE", "MAPE (%)",
+                      "RMSE change vs ARIMA (%)"),
+        caption = paste0("Test-period accuracy (final ", test_horizon,
+                         " days). Bold rows have the lowest RMSE for that job type.")) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(which(accuracy_table$Best), bold = TRUE, background = "#FFF3B0") %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+```{r}
+#| label: accuracy-plot
+#| fig-width: 12
+#| fig-height: 6
+
+fig_accuracy <- accuracy_table %>%
+  mutate(Model = fct_rev(Model)) %>%
+  ggplot(aes(RMSE, Model, fill = Best)) +
+  geom_col(width = 0.7) +
+  geom_text(aes(label = number(RMSE, accuracy = 0.01)), hjust = -0.15, size = 3.5) +
+  facet_wrap(~ Job_Type, scales = "free_x") +
+  scale_fill_manual(values = c(`TRUE` = col_pred, `FALSE` = "gray70"), guide = "none") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.25))) +
+  labs(title = "Test-Period RMSE by Model",
+       subtitle = "Lower is better; the best model for each job type is highlighted",
+       x = "RMSE", y = NULL) +
+  theme_ts()
+
+fig_accuracy
+save_plot(fig_accuracy, "Test_RMSE_by_model.png", width = 12, height = 6)
+```
+
+```{r}
+#| label: best-models
+
+best_models <- accuracy_table %>%
+  filter(Best) %>%
+  select(Job_Type, Best_Model = Model, RMSE, RMSE_vs_ARIMA)
+
+best_models %>%
+  kable(digits = 3, caption = "Best model for each job-opening series",
+        col.names = c("Job Openings", "Best Model", "RMSE", "RMSE change vs ARIMA (%)")) %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Diebold–Mariano tests against the ARIMA baseline
+
+The Diebold–Mariano (DM) test checks whether the squared-error loss of each external-predictor model differs significantly from the univariate ARIMA baseline over the test period. Because all test forecasts come from a single forecast origin (horizons 1 to `r test_horizon`), the test is used here as a descriptive guide rather than a formal multi-origin comparison.
+
+```{r}
+#| label: dm-tests
+
+baseline_errors <- all_predictions %>%
+  filter(Period == "Test", Model == "ARIMA (baseline)") %>%
+  transmute(Date, Job_Type, Baseline_Error = Actual - Fitted_Predicted)
+
+dm_results <- all_predictions %>%
+  filter(Period == "Test", Model != "ARIMA (baseline)") %>%
+  transmute(Date, Job_Type, Model, Model_Error = Actual - Fitted_Predicted) %>%
+  inner_join(baseline_errors, by = c("Date", "Job_Type")) %>%
+  group_by(Job_Type, Model) %>%
+  summarise(
+    {
+      dm <- forecast::dm.test(Baseline_Error, Model_Error,
+                              alternative = "two.sided", h = 1, power = 2)
+      tibble(DM_Statistic = unname(dm$statistic), P_Value = dm$p.value)
+    },
+    Lower_Loss = if_else(mean(Model_Error^2) < mean(Baseline_Error^2),
+                         as.character(first(Model)), "ARIMA (baseline)"),
+    .groups = "drop"
+  ) %>%
+  mutate(Significant = if_else(P_Value < 0.05, "Yes", "No"))
+
+save_table(dm_results, "Diebold_Mariano_vs_ARIMA.csv")
+
+dm_results %>%
+  kable(digits = 3,
+        col.names = c("Job Openings", "Model", "DM Statistic", "p-value",
+                      "Lower-Loss Model", "Significant (5%)"),
+        caption = "Diebold–Mariano tests: each model versus the univariate ARIMA baseline") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed")) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+# Part 3 – Macroeconomic ARIMAX (Monthly)
+
+**Model:** DA job openings regressed on the Federal Funds Rate, Personal Consumption Expenditures (PCE), and the Producer Price Index for the Information sector, with SARIMA errors. All series are aggregated to a common monthly frequency and a common time period.
+
+## Data
+
+```{r}
+#| label: monthly-data
+
+fedfunds  <- read.csv(file.path(monthly_data_folder, "FEDFUNDS.csv"))
+indeed_da <- read.csv(file.path(monthly_data_folder, "indeed_data_analysis_job_postings.csv"))
+pce       <- read.csv(file.path(monthly_data_folder, "PCE.csv"))
+ppi_info  <- read.csv(file.path(monthly_data_folder, "PPI_Information.csv"))
+
+# Keep date and value columns
+fedfunds <- fedfunds[, 1:2]; colnames(fedfunds) <- c("Date", "FedFundsRate")
+pce      <- pce[, 1:2];      colnames(pce)      <- c("Date", "PCE")
+ppi_info <- ppi_info[, 1:2]; colnames(ppi_info) <- c("Date", "PPIInformation")
+
+fedfunds$Date <- as.Date(fedfunds$Date)
+pce$Date      <- as.Date(pce$Date)
+ppi_info$Date <- as.Date(ppi_info$Date)
+
+indeed_da <- indeed_da %>%
+  mutate(dateString = as.Date(dateString)) %>%
+  filter(countryCode == "US", sectorName == "Data & Analytics", postingType == "TOTAL") %>%
+  select(Date = dateString, DataAnalysisJobPostings = value)
+
+# Convert any dataset to monthly averages
+to_monthly <- function(df) {
+  df %>%
+    mutate(Date = floor_date(Date, unit = "month")) %>%
+    group_by(Date) %>%
+    summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+}
+
+merged_data <- Reduce(
+  function(x, y) merge(x, y, by = "Date", all = FALSE),
+  list(to_monthly(indeed_da), to_monthly(fedfunds), to_monthly(pce), to_monthly(ppi_info))
+) %>%
+  arrange(Date) %>%
+  filter(if_all(-Date, ~ !is.na(.x)))
+
+df <- merged_data
+
+start_year  <- year(min(df$Date))
+start_month <- month(min(df$Date))
+
+df.ts <- ts(df[, -1], start = c(start_year, start_month), frequency = 12)
+
+monthly_variables <- c(
+  DataAnalysisJobPostings = "Data Analysis Job Postings",
+  FedFundsRate            = "Federal Funds Rate",
+  PCE                     = "PCE",
+  PPIInformation          = "PPI Information"
+)
+
+cat("Common monthly period:", format(min(df$Date)), "to", format(max(df$Date)),
+    "|", nrow(df), "monthly observations\n")
+
+kable(head(df), digits = 2,
+      caption = "Merged monthly dataset: DA job postings, Fed Funds Rate, PCE, and PPI (Information)") %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Exploratory analysis
+
+### Time-series plots
+
+```{r}
+#| label: monthly-plot
+#| fig-width: 11
+#| fig-height: 9
+
+monthly_long <- df %>%
+  pivot_longer(-Date, names_to = "Variable", values_to = "Value") %>%
+  mutate(Variable = factor(monthly_variables[Variable], levels = monthly_variables))
+
+fig_monthly <- ggplot(monthly_long, aes(Date, Value)) +
+  geom_line(linewidth = 0.8, color = col_actual) +
+  facet_grid(Variable ~ ., scales = "free_y", switch = "y") +
+  labs(title = "Monthly Time Series",
+       subtitle = "Data Analysis job postings, Federal Funds Rate, PCE, and PPI (Information)",
+       x = "Year", y = NULL) +
+  theme_ts() +
+  theme(strip.placement = "outside",
+        strip.text.y.left = element_text(angle = 0, hjust = 1))
+
+fig_monthly
+save_plot(fig_monthly, "Monthly_time_series.png", width = 11, height = 9)
+```
+
+### Lag plots
+
+```{r}
+#| label: monthly-lag-plots
+#| fig-width: 11
+#| fig-height: 9
+
+for (var_name in names(monthly_variables)) {
+  p <- gglagplot(df.ts[, var_name], do.lines = FALSE, lags = 12) +
+    ggtitle(paste("Lag Plots for", monthly_variables[[var_name]])) +
+    xlab(paste("Lagged", monthly_variables[[var_name]])) +
+    ylab(paste("Current", monthly_variables[[var_name]])) +
+    theme_minimal()
+  print(p)
+}
+```
+
+### ACF plots
+
+```{r}
+#| label: monthly-acf
+#| fig-width: 11
+#| fig-height: 7
+
+acf_plots <- lapply(names(monthly_variables), function(var_name) {
+  ggAcf(df.ts[, var_name], lag.max = 30) +
+    ggtitle(paste("ACF:", monthly_variables[[var_name]])) +
+    xlab("Lag (months)") +
+    theme_minimal()
+})
+
+wrap_plots(acf_plots, ncol = 2)
+```
+
+### Stationarity (Augmented Dickey–Fuller test)
+
+```{r}
+#| label: monthly-adf
+
+adf_results <- map_dfr(names(monthly_variables), function(var_name) {
+  adf_result <- adf.test(df.ts[, var_name])
+  tibble(
+    Variable      = monthly_variables[[var_name]],
+    ADF_Statistic = as.numeric(adf_result$statistic),
+    Lag_Order     = as.numeric(adf_result$parameter),
+    P_Value       = adf_result$p.value,
+    Conclusion    = if_else(adf_result$p.value < 0.05, "Stationary", "Non-stationary")
+  )
+})
+
+kable(adf_results, digits = 4, caption = "ADF test results for monthly variables") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+If p-value \< 0.05 → reject the unit root → stationary; if p-value ≥ 0.05 → fail to reject → non-stationary.
+
+## Fitting the ARIMAX model with `auto.arima()`
+
+```{r}
+#| label: monthly-auto-arima
+
+y    <- df.ts[, "DataAnalysisJobPostings"]
+xreg <- df.ts[, c("FedFundsRate", "PCE", "PPIInformation")]
+
+fit_auto <- auto.arima(y, xreg = xreg)
+summary(fit_auto)
+checkresiduals(fit_auto)
+```
+
+## Fitting the model manually
+
+### Step 1: Regression
+
+We first fit a linear regression of DA job postings on the three macroeconomic indicators and then model the regression residuals as a (S)ARIMA process.
+
+```{r}
+#| label: monthly-regression
+
+reg_model <- lm(DataAnalysisJobPostings ~ FedFundsRate + PCE + PPIInformation, data = df)
+summary(reg_model)
+
+res.fit <- ts(residuals(reg_model), start = c(start_year, start_month), frequency = 12)
+
+ggAcf(res.fit) + ggtitle("ACF of Regression Residuals") + theme_minimal()
+```
+
+```{r}
+#| label: auto-arima-residuals
+
+# Check: automatic order selection for the residuals
+auto.arima(res.fit)
+```
+
+### Step 2: Identify the error model
+
+#### First-order differencing
+
+```{r}
+#| label: res-first-diff
+#| fig-width: 11
+#| fig-height: 4
+
+first_diff <- diff(res.fit)
+
+grid.arrange(
+  ggAcf(first_diff)  + ggtitle("ACF of First-Differenced Residuals")  + theme_minimal(),
+  ggPacf(first_diff) + ggtitle("PACF of First-Differenced Residuals") + theme_minimal(),
+  ncol = 2
+)
+```
+
+No additional ordinary differencing appears necessary, so $d = 0$ is a candidate (with $d = 1$ also considered).
+
+#### Residuals without differencing
+
+```{r}
+#| label: res-no-diff
+#| fig-width: 11
+#| fig-height: 4
+
+grid.arrange(
+  ggAcf(res.fit)  + ggtitle("ACF of Regression Residuals")  + theme_minimal(),
+  ggPacf(res.fit) + ggtitle("PACF of Regression Residuals") + theme_minimal(),
+  ncol = 2
+)
+```
+
+From the ACF: $q = 1, 2, 3, 4$; from the PACF: $p = 1$.
+
+#### Seasonal differencing only
+
+```{r}
+#| label: res-seasonal-diff
+#| fig-width: 11
+#| fig-height: 4
+
+seasonal_diff <- diff(res.fit, lag = 12)
+
+grid.arrange(
+  ggAcf(seasonal_diff)  + ggtitle("ACF of Seasonally Differenced Residuals")  + theme_minimal(),
+  ggPacf(seasonal_diff) + ggtitle("PACF of Seasonally Differenced Residuals") + theme_minimal(),
+  ncol = 2
+)
+```
+
+From the PACF: $P = 1$; from the ACF: $Q = 1$; one seasonal difference: $D = 1$.
+
+#### Seasonal differencing on top of first differencing
+
+```{r}
+#| label: res-both-diff
+#| fig-width: 11
+#| fig-height: 4
+
+both_diff <- diff(first_diff, lag = 12)
+
+grid.arrange(
+  ggAcf(both_diff)  + ggtitle("ACF: First + Seasonal Differences")  + theme_minimal(),
+  ggPacf(both_diff) + ggtitle("PACF: First + Seasonal Differences") + theme_minimal(),
+  ncol = 2
+)
+```
+
+Here $d = 1, D = 1, P = 1, Q = 1$.
+
+**Candidate parameters:** $d \in \{0, 1\}$, $p = 1$, $q \in \{1, \dots, 4\}$, $D = 1$, $P \in \{0,1\}$, $Q \in \{0,1\}$.
+
+## Parameter tuning
+
+### Non-seasonal ARIMA search
+
+```{r}
+#| label: arima-search
+
+p_range <- 1:4
+d_range <- 0:1
+q_range <- 1
+
+arima_search <- expand_grid(p = p_range, d = d_range, q = q_range) %>%
+  mutate(fit = pmap(list(p, d, q), function(p, d, q) {
+    tryCatch(Arima(res.fit, order = c(p, d, q), include.drift = TRUE),
+             error = function(e) NULL)
+  })) %>%
+  filter(!map_lgl(fit, is.null)) %>%
+  mutate(AIC  = map_dbl(fit, "aic"),
+         BIC  = map_dbl(fit, "bic"),
+         AICc = map_dbl(fit, "aicc")) %>%
+  select(-fit) %>%
+  arrange(AIC)
+
+top_arima <- head(arima_search, 10)
+
+kable(top_arima, digits = 3, align = "c", caption = "Top 10 ARIMA models by AIC") %>%
+  kable_styling(full_width = FALSE) %>%
+  row_spec(which.min(top_arima$AIC), bold = TRUE, background = "#FFFF99")
+```
+
+### Seasonal ARIMA (SARIMA) search
+
+```{r}
+#| label: sarima-search
+
+SARIMA.c <- function(p1, p2, q1, q2, P1, P2, Q1, Q2, data, d = 0, D = 1, s = 12) {
+
+  results <- list()
+
+  for (p in p1:p2) for (q in q1:q2) for (P in P1:P2) for (Q in Q1:Q2) {
+
+    if (p + d + q + P + D + Q <= 10) {
+
+      model <- tryCatch(
+        Arima(data, order = c(p, d, q),
+              seasonal = list(order = c(P, D, Q), period = s)),
+        error = function(e) NULL
+      )
+
+      if (!is.null(model)) {
+        results[[length(results) + 1]] <- tibble(
+          p = p, d = d, q = q, P = P, D = D, Q = Q,
+          AIC = model$aic, BIC = model$bic, AICc = model$aicc
+        )
+      }
+    }
+  }
+
+  if (length(results) == 0) stop("No SARIMA models were successfully fitted.")
+  bind_rows(results)
+}
+
+sarima_output <- SARIMA.c(p1 = 0, p2 = 1, q1 = 1, q2 = 4,
+                          P1 = 0, P2 = 1, Q1 = 0, Q2 = 1, data = res.fit)
+
+top_sarima <- sarima_output %>% arrange(AIC) %>% head(10)
+
+kable(top_sarima, digits = 3, align = "c", caption = "Top 10 SARIMA models by AIC") %>%
+  kable_styling(full_width = FALSE) %>%
+  row_spec(which.min(top_sarima$AIC), bold = TRUE, background = "#FFFF99")
+
+bind_rows(
+  "Best by AIC" = slice_min(sarima_output, AIC, n = 1, with_ties = FALSE),
+  "Best by BIC" = slice_min(sarima_output, BIC, n = 1, with_ties = FALSE),
+  .id = "Selection_Criterion"
+) %>%
+  kable(digits = 3, align = "c", caption = "Best SARIMA models by AIC and BIC") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+### Candidate models
+
+- ARIMA(1,0,1)
+- ARIMA(3,1,1)
+- SARIMA(1,0,1)(0,1,1)\[12\]
+- SARIMA(1,0,1)(1,1,1)\[12\]
+
+## Time-series cross-validation
+
+The two seasonal candidates are compared with an expanding-window cross-validation. The initial training window is roughly one-third of the sample (rounded down to whole years), and 12-month-ahead forecasts are produced at every origin.
+
+```{r}
+#| label: ts-cv
+
+y_cv <- res.fit
+n    <- length(y_cv)
+k    <- floor(n / 3 / 12) * 12   # initial training window
+h    <- 12                       # forecast horizon (months)
+
+n_origins <- n - k - h + 1
+
+if (k < 24)        warning("The initial training window contains fewer than two seasonal cycles.")
+if (n_origins < 1) stop("There are not enough observations for 12-step cross-validation.")
+
+cv_models <- list(
+  "SARIMA(1,0,1)(0,1,1)[12]" = list(order = c(1, 0, 1), seasonal = c(0, 1, 1)),
+  "SARIMA(1,0,1)(1,1,1)[12]" = list(order = c(1, 0, 1), seasonal = c(1, 1, 1))
+)
+
+cv_errors <- lapply(cv_models, function(x) matrix(NA_real_, nrow = n_origins, ncol = h))
+
+for (i in seq_len(n_origins)) {
+
+  train_end <- k + i - 1
+  xtrain    <- window(y_cv, end = time(y_cv)[train_end])
+  xtest     <- as.numeric(y_cv[(train_end + 1):(train_end + h)])
+
+  for (model_name in names(cv_models)) {
+    spec <- cv_models[[model_name]]
+    fit_i <- tryCatch(
+      Arima(xtrain, order = spec$order,
+            seasonal = list(order = spec$seasonal, period = 12), method = "ML"),
+      error = function(e) NULL
+    )
+    if (!is.null(fit_i)) {
+      cv_errors[[model_name]][i, ] <- as.numeric(forecast(fit_i, h = h)$mean) - xtest
+    }
+  }
+}
+
+rmse_table <- tibble(Horizon = 1:h) %>%
+  bind_cols(map_dfc(cv_errors, ~ sqrt(colMeans(.x^2, na.rm = TRUE))))
+
+kable(rmse_table, digits = 4, caption = "Rolling-origin RMSE by forecast horizon") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+#| label: ts-cv-plot
+#| fig-width: 10
+#| fig-height: 6
+
+fig_cv <- rmse_table %>%
+  pivot_longer(-Horizon, names_to = "Model", values_to = "RMSE") %>%
+  ggplot(aes(Horizon, RMSE, color = Model)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_continuous(breaks = 1:h) +
+  labs(title = "Rolling-Origin RMSE for 12-Step Forecasts",
+       subtitle = paste("Initial training window:", k, "observations"),
+       x = "Forecast horizon (months ahead)", y = "Root mean squared error",
+       color = "SARIMA model") +
+  theme_ts()
+
+fig_cv
+save_plot(fig_cv, "Monthly_CV_RMSE.png", width = 10, height = 6)
+```
+
+## Model diagnostics
+
+```{r}
+#| label: diagnostics
+#| fig-width: 10
+#| fig-height: 8
+
+set.seed(345)
+
+diagnostic_models <- list(
+  "ARIMA(1,0,1)"             = c(1, 0, 1, 0, 0, 0),
+  "ARIMA(3,1,1)"             = c(3, 1, 1, 0, 0, 0),
+  "SARIMA(1,0,1)(0,1,1)[12]" = c(1, 0, 1, 0, 1, 1)
+)
+
+for (model_name in names(diagnostic_models)) {
+  o <- diagnostic_models[[model_name]]
+  model_output <- capture.output(
+    sarima(res.fit, o[1], o[2], o[3], o[4], o[5], o[6], 12)
+  )
+  start_line <- grep("Coefficients", model_output)
+  start_line <- if (length(start_line) == 0) 1 else start_line[1]
+  cat("\n###", model_name, "###\n")
+  cat(model_output[start_line:length(model_output)], sep = "\n")
+}
+```
+
+**Interpretation** (update after re-running):
+
+- **Standardized residuals** fluctuate around zero with roughly constant variance, consistent with a stationary error process.
+- **ACF of residuals** shows no significant autocorrelation, indicating that the error structure has been captured.
+- **Q–Q plot** suggests approximately normal residuals with minor deviations in the tails.
+- **Ljung–Box p-values** remain mostly above 0.05, indicating no remaining autocorrelation.
+- **Coefficient significance:** check the p-values above; the selected SARIMA(1,0,1)(0,1,1)\[12\] model has significant AR, MA, and seasonal MA terms.
+
+## Final model
+
+```{r}
+#| label: final-model
+
+fit <- Arima(
+  y,
+  order    = c(1, 0, 1),
+  seasonal = list(order = c(0, 1, 1), period = 12),
+  xreg     = xreg
+)
+
+summary(fit)
+
+# Coefficients used in the model equation below
+round(coef(fit), 4)
+```
+
+### Model equations
+
+::: {.callout-note title="DA Job Openings: Regression with SARIMA(1,0,1)(0,1,1)[12] Errors"}
+$$y_t = \beta_1 X_{1t} + \beta_2 X_{2t} + \beta_3 X_{3t} + n_t$$
+
+where $y_t$ is **Data Analysis Job Postings** and $n_t$ is the SARIMA error term. With the estimated regression coefficients:
+
+$$y_t = -8.9769\,\text{FedFundsRate}_t + 0.0064\,\text{PCE}_t - 0.8042\,\text{PPIInformation}_t + n_t$$
+
+The error term follows
+
+$$\Phi_P(B^{12})\,\varphi(B)\,\nabla_{12}^{1}\nabla^{0} n_t = \Theta_Q(B^{12})\,\theta(B)\,w_t,$$
+
+which for the selected model is
+
+$$(1-\phi_1B)(1-B^{12})\,n_t = (1+\theta_1B)(1+\Theta_1B^{12})\,w_t$$
+
+$$(1-0.9824B)(1-B^{12})\,n_t = (1+0.8091B)(1-0.6881B^{12})\,w_t$$
+:::
+
+The same workflow applied to software and overall job openings produced the following models:
+
+::: {.callout-note title="SW Job Openings: Regression with SARIMA(1,0,1)(0,1,1)[12] Errors"}
+$$y_t = -12.973\,\text{FedFundsRate}_t + 0.0047\,\text{PCE}_t - 1.3354\,\text{PPIInformation}_t + n_t$$
+
+$$(1-0.9881B)(1-B^{12})\,n_t = (1+0.8037B)(1-0.9997B^{12})\,w_t$$
+:::
+
+::: {.callout-note title="All Job Openings: Regression with SARIMA(0,1,1)(0,1,1)[12] Errors"}
+$$y_t = -1.4234\,\text{FedFundsRate}_t + 0.0069\,\text{PCE}_t + 0.2231\,\text{PPIInformation}_t + n_t$$
+
+$$(1-B)(1-B^{12})\,n_t = (1+0.8082B)(1-0.6614B^{12})\,w_t$$
+:::
+
+## Forecasting
+
+Each exogenous variable is first forecast with its own `auto.arima` model; those forecasts are then used as future regressors for the ARIMAX forecast of DA job postings.
+
+```{r}
+#| label: exog-forecast
+
+monthly_h <- 36
+
+fxreg <- sapply(c("FedFundsRate", "PCE", "PPIInformation"), function(var_name) {
+  as.numeric(forecast(auto.arima(xreg[, var_name]), h = monthly_h)$mean)
+})
+
+fcast <- forecast(fit, xreg = fxreg, h = monthly_h)
+```
+
+```{r}
+#| label: final-forecast-plot
+#| fig-width: 11
+#| fig-height: 6
+
+future_months <- seq(max(df$Date) %m+% months(1), by = "month", length.out = monthly_h)
+
+fcast_df <- tibble(
+  Date     = future_months,
+  Forecast = as.numeric(fcast$mean),
+  Lower80  = as.numeric(fcast$lower[, 1]), Upper80 = as.numeric(fcast$upper[, 1]),
+  Lower95  = as.numeric(fcast$lower[, 2]), Upper95 = as.numeric(fcast$upper[, 2])
+)
+
+orig_df <- tibble(Date = df$Date, Actual = as.numeric(y))
+
+plot_ly() %>%
+  add_ribbons(data = fcast_df, x = ~Date, ymin = ~Lower95, ymax = ~Upper95,
+              name = "95% PI", fillcolor = "rgba(66,146,198,0.2)",
+              line = list(color = "transparent")) %>%
+  add_ribbons(data = fcast_df, x = ~Date, ymin = ~Lower80, ymax = ~Upper80,
+              name = "80% PI", fillcolor = "rgba(66,146,198,0.35)",
+              line = list(color = "transparent")) %>%
+  add_lines(data = orig_df, x = ~Date, y = ~Actual, name = "Actual",
+            line = list(color = col_actual)) %>%
+  add_lines(data = fcast_df, x = ~Date, y = ~Forecast, name = "Forecast",
+            line = list(color = col_pred)) %>%
+  layout(title = "Forecast of Data Analysis Job Postings for the Next 36 Months",
+         xaxis = list(title = "Year"),
+         yaxis = list(title = "Data Analysis Job Postings Index"))
+```
+
+# Conclusions
+
+```{r}
+#| label: conclusion-summary
+#| echo: false
+#| output: asis
+
+best_models %>%
+  mutate(Summary = paste0(Job_Type, ": best test-period model was ", Best_Model,
+                          " (RMSE = ", round(RMSE, 2), ", ",
+                          sprintf("%+.1f", RMSE_vs_ARIMA), "% vs. ARIMA baseline)")) %>%
+  pull(Summary) %>%
+  paste0("- ", ., collapse = "\n") %>%
+  cat()
+```
+
+**Summary of findings**
+
+- **External technology signals help for AI-exposed roles.** Models that add technology-related signals (Google Trends, technology stock prices, CAPEX/PPI) improve test-period forecasts for data analytics and software job openings relative to univariate baselines.
+- **Overall job openings follow their own history.** All U.S. job openings are best predicted using their own historical trends; external AI-related predictors add little.
+- **Lead–lag structure.** CCFs on raw levels are dominated by shared trends; after first differencing, the remaining significant lags (see the peak table) indicate which signals lead changes in job openings.
+- **Macroeconomic drivers (monthly).** The Federal Funds Rate has a strong negative association with DA and SW postings (larger in magnitude for SW), consistent with tighter monetary conditions reducing hiring in technology-related roles, while its effect on overall openings is much smaller. PCE enters positively for all three series, and PPI (Information) is negatively associated with DA and SW but positively with overall openings, highlighting how technology-related roles respond differently to sector-level pricing conditions.
+
+**Limitations**
+
+- ARIMAX test forecasts use observed predictor values (ex-post); operational forecasts would require forecasting the predictors as well (as done in Part 3).
+- Several predictors (Google Trends, CAPEX, PPI) are interpolated to a daily frequency, which smooths their dynamics.
+- CCF and regression results describe association, not causation.
