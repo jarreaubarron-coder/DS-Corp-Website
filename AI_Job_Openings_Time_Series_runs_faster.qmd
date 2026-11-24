@@ -1,6 +1,6 @@
 ---
 title: "AI Adoption and Job-Market Demand: Time-Series Analysis"
-subtitle: "Data analytics, software, and overall U.S. job openings versus Google Trends, technology stocks, CAPEX, PPI, and macroeconomic indicators"
+subtitle: "Data analytics, software, and overall U.S. job openings versus CAPEX, PPI (Information), the Federal Funds Rate, PCE, and NVIDIA revenue"
 author: "Dr. Purna Gamage"
 date: today
 format:
@@ -23,28 +23,43 @@ editor: visual
 
 # Introduction
 
-The rapid growth of generative AI raises important questions about how AI adoption is reflected in labor-market demand, especially for data analytics and software roles. This analysis examines whether public interest, technology market signals, technology investment, and macroeconomic indicators help explain and forecast changes in job openings.
+The rapid growth of generative AI raises important questions about how AI adoption is reflected in labor-market demand, especially for data analytics and software roles. This analysis examines whether technology investment (CAPEX), producer prices (PPI for Information), macroeconomic conditions (the Federal Funds Rate and PCE), and NVIDIA revenue help explain and forecast changes in job openings.
 
 **Research questions**
 
-1.  How do data analytics (DA) and software (SW) job openings differ from overall U.S. job openings (ALL) in their relationship with macroeconomic and technology investment indicators?
-2.  Can public interest and technology investment signals help predict changes in job-market demand for AI- and data-related roles?
+1.  How do data analytics (DA) and software (SW) job openings differ from overall U.S. job openings (ALL) in their relationship with technology investment and macroeconomic indicators?
+2.  Can CAPEX, PPI (Information), the Federal Funds Rate, PCE, and NVIDIA revenue help predict changes in job-market demand for data analytics roles?
 
 **Data**
 
 | Variable(s) | Description | Source |
 |----|----|----|
 | DA, SW, ALL job openings | Daily job-posting indices | Indeed Hiring Lab |
-| Google Trends | Search interest in AI-related job titles and skills | Google Trends |
-| MSFT, C3AI, NVDA, GOOGL | Adjusted closing stock prices | Yahoo Finance |
 | CAPEX, PPI (Information) | Capital expenditure and producer price index (daily-interpolated) | FRED |
 | FEDFUNDS, PCE, PPI (Information) | Monthly macroeconomic indicators | FRED |
+| NVIDIA revenue | Quarterly revenue (US\$ millions), converted to US\$ billions and carried forward across each quarter's months and days (the same series used in the Ridge Regression Simulator and the Elasticity Dashboard) | NVIDIA quarterly results |
 
-**Workflow**
+::: {.callout-tip appearance="simple" icon="false"}
+## Plain-English summary
 
-- **Part 1 – Exploratory analysis (daily):** time-series plots, linear regression, and cross-correlation (CCF) in levels and first differences.
-- **Part 2 – Forecasting (daily):** baseline univariate ARIMA and Prophet models versus regression models with ARIMA errors (ARIMAX) using each group of external predictors; test-period accuracy comparison.
-- **Part 3 – Macroeconomic ARIMAX (monthly):** a full Box–Jenkins workflow (EDA, stationarity, regression, SARIMA error modeling, parameter search, time-series cross-validation, diagnostics, final model, and forecasts) for DA job openings using the Federal Funds Rate, PCE, and PPI (Information).
+**The big question:** Do technology spending, business prices, interest rates, consumer spending, and NVIDIA's revenue (a gauge of AI demand) help us predict how many data analytics jobs are open?
+
+**Part 1 – Look at the data (daily).** We graph daily job openings for data analytics (DA), software (SW), and all jobs (ALL) next to company technology spending (CAPEX), the prices businesses charge in the information sector (PPI), and NVIDIA's revenue. Then we check two things: whether the lines tend to rise and fall together, and whether one tends to move first. For example, does a change in spending show up in job postings a few weeks later?
+
+**Part 2 – Make predictions (daily).** We build forecasting models and test them on recent days they have never seen, like a pop quiz. Simple models use only the past pattern of job openings to guess the future. Fuller models also use CAPEX and PPI, or NVIDIA's revenue, as clues. Comparing the scores shows whether those clues improve the forecasts.
+
+**Part 3 – Zoom out to the economy (monthly).** We switch to monthly data and ask how data analytics job openings relate to interest rates (the Federal Funds Rate), consumer spending (PCE), information-sector prices (PPI), and NVIDIA's quarterly revenue. NVIDIA reports revenue only once a quarter, so each quarter's figure is carried across its months to line up with the monthly data. We build the model step by step:
+
+1.  Look at the data.
+2.  Make sure the pattern is stable enough to model.
+3.  Account for seasonal patterns, such as hiring that rises and falls at the same times each year.
+4.  Try many model settings and keep the best.
+5.  Test the model repeatedly on past periods.
+6.  Check that its mistakes look random, meaning it hasn't missed anything obvious.
+7.  Produce the final forecast of data analytics job openings.
+
+**In short:** We look for clues, test whether they help predict job demand, and then forecast where it is heading.
+:::
 
 # Setup
 
@@ -68,12 +83,14 @@ library(gridExtra)
 
 # ------------------------------------------------------------
 # Paths (relative to this .qmd file; keep the folder structure)
-#   data/daily/    job openings, Google Trends, stocks, CAPEX, PPI
+#   data/daily/    job openings, CAPEX, PPI
 #   data/monthly/  FEDFUNDS, PCE, PPI (Information), DA job postings
+#   data/          NVIDIA Quarterly Revenue.csv (quarterly)
 # ------------------------------------------------------------
 
 data_folder         <- file.path("data", "daily")
 monthly_data_folder <- file.path("data", "monthly")
+nvidia_file         <- file.path("data", "NVIDIA Quarterly Revenue.csv")
 
 # Where figures and CSV results are saved
 output_folder <- "outputs"
@@ -162,6 +179,33 @@ save_table <- function(data, file_name) {
 
 # Data Preparation (Daily)
 
+## NVIDIA quarterly revenue
+
+NVIDIA reports revenue once a quarter. Following the Ridge Regression Simulator and the Elasticity Dashboard, each quarter's revenue (US\$ millions, converted here to US\$ billions) is carried forward from the month the quarter ends until the next quarter is reported. The same step series is used for the daily analysis (Parts 1 and 2) and the monthly analysis (Part 3).
+
+```{r}
+#| label: nvidia-data
+
+nvidia_q <- read.csv(nvidia_file, skip = 2, header = FALSE,
+                     col.names = c("Date", "Revenue"), stringsAsFactors = FALSE) %>%
+  mutate(Date          = floor_date(mdy(Date), unit = "month"),
+         NVIDIARevenue = parse_number(Revenue) / 1000) %>%
+  select(Date, NVIDIARevenue) %>%
+  arrange(Date)
+
+# Quarterly revenue carried forward to any date (NA before the first quarter)
+nvidia_step <- function(dates) {
+  idx <- findInterval(floor_date(dates, "month"), nvidia_q$Date)
+  nvidia_q$NVIDIARevenue[if_else(idx == 0L, NA_integer_, idx)]
+}
+
+nvidia_q %>%
+  slice_tail(n = 8) %>%
+  kable(digits = 3, col.names = c("Quarter-end month", "Revenue (US$ billions)"),
+        caption = "Most recent quarters of NVIDIA revenue") %>%
+  kable_styling(full_width = FALSE)
+```
+
 ## Load and merge all sources
 
 Each file is read, its date column is detected and parsed, and every other column is prefixed with the file name so that variables remain identifiable after merging. The datasets are then restricted to their common overlapping period.
@@ -170,13 +214,7 @@ Each file is read, its date column is detected and parsed, and every other colum
 #| label: load-data
 
 files <- c(
-  "AI_historical_data.csv",
-  "GOOGL_historical_data.csv",
-  "MSFT_historical_data.csv",
-  "NVDA_historical_data.csv",
   "all_capex_ppi_daily_interpolated.csv",
-  "GT_jobs_int.csv",
-  "GT_skills_int.csv",
   "indeed_data_analysis.csv",
   "indeed-all.csv",
   "indeed-software.csv"
@@ -230,7 +268,8 @@ common_end   <- min(do.call(c, lapply(data_list, function(x) max(x$Date))))
 
 combined_data <- reduce(data_list, full_join, by = "Date") %>%
   filter(Date >= common_start, Date <= common_end) %>%
-  arrange(Date)
+  arrange(Date) %>%
+  mutate(NVIDIA_Revenue = nvidia_step(Date))
 
 tibble(
   Start        = common_start,
@@ -260,17 +299,6 @@ get_job_column <- function(pattern) {
   if (length(preferred) > 0) preferred[1] else columns[1]
 }
 
-get_stock_column <- function(pattern) {
-  columns <- get_numeric_columns(pattern)
-  if (length(columns) == 0) return(NA_character_)
-  # Prefer adjusted close, otherwise close
-  preferred <- columns[grepl("adj.*close|adjusted.*close", columns, ignore.case = TRUE)]
-  if (length(preferred) == 0) {
-    preferred <- columns[grepl("close", columns, ignore.case = TRUE)]
-  }
-  if (length(preferred) > 0) preferred[1] else columns[1]
-}
-
 # 1. Job-opening series (outcomes)
 job_columns <- c(
   DA  = get_job_column("^indeed_data_analysis_"),
@@ -278,35 +306,19 @@ job_columns <- c(
   ALL = get_job_column("^indeed[.]all_")
 )
 
-# 2. Google Trends (job titles and skills)
-gt_jobs_columns   <- get_numeric_columns("^GT_jobs_int_")
-gt_skills_columns <- get_numeric_columns("^GT_skills_int_")
-
-google_columns <- c(gt_jobs_columns, gt_skills_columns)
-names(google_columns) <- c(
-  paste0("GT Job: ",   sub("^GT_jobs_int_",   "", gt_jobs_columns)),
-  paste0("GT Skill: ", sub("^GT_skills_int_", "", gt_skills_columns))
-)
-
-# 3. Technology stock prices
-stock_columns <- c(
-  MSFT  = get_stock_column("^MSFT_historical_data_"),
-  C3AI  = get_stock_column("^AI_historical_data_"),
-  NVDA  = get_stock_column("^NVDA_historical_data_"),
-  GOOGL = get_stock_column("^GOOGL_historical_data_")
-)
-
-# 4. CAPEX and PPI
+# 2. CAPEX and PPI
 capex_ppi_columns <- get_numeric_columns("^all_capex_ppi_daily_interpolated_")
 names(capex_ppi_columns) <- sub("^all_capex_ppi_daily_interpolated_", "", capex_ppi_columns)
 
-# All predictors and their groups
-predictor_columns <- c(google_columns, stock_columns, capex_ppi_columns)
+# All daily predictors and their groups
+# 3. NVIDIA revenue (quarterly, carried forward to daily)
+nvidia_columns <- c("NVIDIA Revenue" = "NVIDIA_Revenue")
+
+predictor_columns <- c(capex_ppi_columns, nvidia_columns)
 
 predictor_groups <- setNames(
-  c(rep("Google Trends", length(google_columns)),
-    rep("Stock Prices",  length(stock_columns)),
-    rep("CAPEX and PPI", length(capex_ppi_columns))),
+  c(rep("CAPEX and PPI",  length(capex_ppi_columns)),
+    rep("NVIDIA Revenue", length(nvidia_columns))),
   names(predictor_columns)
 )
 
@@ -324,7 +336,7 @@ tibble(
 
 ## Build a regularly spaced daily dataset
 
-Stock prices are only observed on trading days, so the merged data are placed on a complete daily calendar (duplicate dates are averaged). Two versions are created:
+The merged data are placed on a complete daily calendar (duplicate dates are averaged, and any missing days are left empty until interpolated). Two versions are created:
 
 - `ccf_data`: only *internal* gaps are linearly interpolated (used for CCF).
 - `model_data`: all gaps are filled with `forecast::na.interp()` (used for regression and forecasting models).
@@ -373,17 +385,10 @@ tibble(
 
 ## Time-series plots
 
-Each figure places the three job-opening series above one group of external predictors on a shared time axis. Every panel has its own vertical scale.
+The figure places the three job-opening series above the external predictors (CAPEX, PPI, and NVIDIA revenue) on a shared time axis. Every panel has its own vertical scale.
 
 ```{r}
 #| label: eda-helper
-
-clean_gt_label <- function(x) {
-  x %>%
-    str_replace("^GT Job: ", "Job title: ") %>%
-    str_replace("^GT Skill: ", "Skill: ") %>%
-    str_replace_all("[_.]", " ")
-}
 
 job_lookup <- tibble(
   Column = unname(job_columns),
@@ -447,56 +452,7 @@ plot_jobs_with <- function(pred_lookup, pred_title, pred_subtitle,
 }
 ```
 
-### Job openings and Google search interest
-
-```{r}
-#| label: eda-google
-#| fig-width: 13
-#| fig-height: 16
-
-google_lookup <- tibble(
-  Column = unname(google_columns),
-  Series = clean_gt_label(names(google_columns))
-)
-
-fig_jo_google <- plot_jobs_with(
-  google_lookup,
-  pred_title    = "Google Search Interest",
-  pred_subtitle = "Search-interest indices for AI-related job titles and technical skills",
-  pred_color    = "#D55E00",
-  figure_title  = "Job Openings and Google Search Interest Over Time"
-)
-
-fig_jo_google
-save_plot(fig_jo_google, "EDA_Job_Openings_vs_Google_Trends.png", height = 16)
-```
-
-### Job openings and technology stock prices
-
-```{r}
-#| label: eda-stocks
-#| fig-width: 13
-#| fig-height: 12
-
-stock_lookup <- tibble(
-  Column = unname(stock_columns),
-  Series = c(MSFT = "Microsoft (MSFT)", C3AI = "C3.ai (AI)",
-             NVDA = "NVIDIA (NVDA)",    GOOGL = "Alphabet (GOOGL)")[names(stock_columns)]
-)
-
-fig_jo_stocks <- plot_jobs_with(
-  stock_lookup,
-  pred_title    = "Technology Stock Prices",
-  pred_subtitle = "Adjusted closing prices for Microsoft, C3.ai, NVIDIA, and Alphabet",
-  pred_color    = "#2E7D5B",
-  figure_title  = "Job Openings and Technology Stock Prices Over Time"
-)
-
-fig_jo_stocks
-save_plot(fig_jo_stocks, "EDA_Job_Openings_vs_Stocks.png", height = 12)
-```
-
-### Job openings and economic indicators (CAPEX and PPI)
+### Job openings, CAPEX, and PPI
 
 ```{r}
 #| label: eda-capex
@@ -524,9 +480,33 @@ fig_jo_econ
 save_plot(fig_jo_econ, "EDA_Job_Openings_vs_CAPEX_PPI.png", height = 10)
 ```
 
+### Job openings and NVIDIA revenue
+
+```{r}
+#| label: eda-nvidia
+#| fig-width: 13
+#| fig-height: 8
+
+nvidia_lookup <- tibble(
+  Column = unname(nvidia_columns),
+  Series = "NVIDIA Revenue (US$ billions per quarter)"
+)
+
+fig_jo_nvidia <- plot_jobs_with(
+  nvidia_lookup,
+  pred_title    = "NVIDIA Revenue",
+  pred_subtitle = "Quarterly revenue carried forward across each quarter (step series)",
+  pred_color    = "#76B900",
+  figure_title  = "Job Openings and NVIDIA Revenue Over Time"
+)
+
+fig_jo_nvidia
+save_plot(fig_jo_nvidia, "EDA_Job_Openings_vs_NVIDIA.png", height = 8)
+```
+
 ## Linear regression
 
-As a first look at explanatory power, each job-opening series is regressed on each predictor group separately (contemporaneous values, no time-series error structure). Because these are trending series, the R² values describe co-movement and should not be read as causal effects; residual autocorrelation is addressed in Parts 2 and 3.
+As a first look at explanatory power, each job-opening series is regressed on each predictor group separately (CAPEX and PPI; NVIDIA revenue; contemporaneous values, no time-series error structure). Because these are trending series, the R² values describe co-movement and should not be read as causal effects; residual autocorrelation is addressed in Parts 2 and 3.
 
 ```{r}
 #| label: regression
@@ -541,9 +521,8 @@ fit_models <- function(predictors) {
 }
 
 regression_models <- list(
-  "Google Trends" = fit_models(google_columns),
-  "Stock Prices"  = fit_models(stock_columns),
-  "CAPEX and PPI" = fit_models(capex_ppi_columns)
+  "CAPEX and PPI"  = fit_models(capex_ppi_columns),
+  "NVIDIA Revenue" = fit_models(nvidia_columns)
 )
 
 regression_results <- imap_dfr(regression_models, function(models, group) {
@@ -584,7 +563,7 @@ for (group in names(regression_models)) {
 
 ## Cross-correlation analysis (CCF)
 
-We use the CCF to examine lead–lag dependence between job openings and each external signal. The sample CCF at lag $k$ estimates $\text{cor}(\text{Job}_{t+k}, X_t)$, so:
+We use the CCF to examine lead–lag dependence between job openings and each external indicator (CAPEX, PPI, and NVIDIA revenue). The sample CCF at lag $k$ estimates $\text{cor}(\text{Job}_{t+k}, X_t)$, so:
 
 - **positive lags** → the predictor *leads* job openings,
 - **negative lags** → job openings lead the predictor,
@@ -641,16 +620,12 @@ label_ccf <- function(ccf_df) {
         levels = c("All Job Openings", "Data Analysis", "Software Development")
       ),
       Predictor_Label = case_when(
-        Category == "Google Trends" ~ clean_gt_label(Predictor),
-        Predictor == "MSFT"  ~ "Microsoft (MSFT)",
-        Predictor == "C3AI"  ~ "C3.ai (AI)",
-        Predictor == "NVDA"  ~ "NVIDIA (NVDA)",
-        Predictor == "GOOGL" ~ "Alphabet (GOOGL)",
         grepl("PCU|PPI", Predictor, ignore.case = TRUE) ~ "PPI (Information)",
         grepl("CAPEX",   Predictor, ignore.case = TRUE) ~ "CAPEX",
+        grepl("NVIDIA",  Predictor, ignore.case = TRUE) ~ "NVIDIA Revenue ($B)",
         TRUE ~ Predictor
       ),
-      Category = factor(Category, levels = c("Google Trends", "Stock Prices", "CAPEX and PPI"))
+      Category = factor(Category, levels = c("CAPEX and PPI", "NVIDIA Revenue"))
     )
 }
 
@@ -739,7 +714,7 @@ save_table(ccf_levels, "CCF_levels_all_values.csv")
 fig_ccf_levels_heat <- ccf_heatmap(
   ccf_levels,
   title    = "Cross-Correlation of Job Openings with External Indicators (Levels)",
-  subtitle = "Google search interest, technology stock prices, CAPEX, and PPI"
+  subtitle = "CAPEX, PPI (Information), and NVIDIA revenue"
 )
 
 fig_ccf_levels_heat
@@ -777,46 +752,6 @@ fig_ccf_diff_heat
 save_plot(fig_ccf_diff_heat, "CCF_first_difference_heatmap.png", width = 15, height = 12)
 ```
 
-#### Google Trends
-
-```{r}
-#| label: ccf-diff-google
-#| fig-width: 13
-#| fig-height: 10
-
-for (job in levels(ccf_diff$Job_Type)) {
-
-  p <- ccf_diff %>%
-    filter(Category == "Google Trends", Job_Type == job) %>%
-    ccf_stem_plot(
-      title    = paste0("First-Difference CCF: ", job, " vs Google Search Interest"),
-      subtitle = "Daily changes in job openings versus daily changes in search interest",
-      facet    = "wrap"
-    )
-
-  print(p)
-  save_plot(p, paste0("CCF_diff_", gsub("[^A-Za-z0-9]+", "_", job), "_vs_Google_Trends.png"))
-}
-```
-
-#### Technology stock prices
-
-```{r}
-#| label: ccf-diff-stocks
-#| fig-width: 13
-#| fig-height: 9
-
-fig_ccf_diff_stocks <- ccf_diff %>%
-  filter(Category == "Stock Prices") %>%
-  ccf_stem_plot(
-    title    = "First-Difference CCF: Job Openings vs Technology Stock Prices",
-    subtitle = "Daily changes in C3.ai, Alphabet, Microsoft, and NVIDIA"
-  )
-
-fig_ccf_diff_stocks
-save_plot(fig_ccf_diff_stocks, "CCF_diff_Job_Openings_vs_Stocks.png")
-```
-
 #### CAPEX and PPI
 
 ```{r}
@@ -833,6 +768,28 @@ fig_ccf_diff_capex <- ccf_diff %>%
 
 fig_ccf_diff_capex
 save_plot(fig_ccf_diff_capex, "CCF_diff_Job_Openings_vs_CAPEX_PPI.png", width = 11)
+```
+
+#### NVIDIA revenue
+
+::: callout-note
+NVIDIA revenue is a quarterly step series, so its *daily* change is zero on almost every day and jumps only when a new quarter begins (about four times a year). The first-difference CCF below is therefore based on very few non-zero changes and should be read with caution; the CCF on levels above mostly reflects shared trends.
+:::
+
+```{r}
+#| label: ccf-diff-nvidia
+#| fig-width: 8
+#| fig-height: 9
+
+fig_ccf_diff_nvidia <- ccf_diff %>%
+  filter(Category == "NVIDIA Revenue") %>%
+  ccf_stem_plot(
+    title    = "First-Difference CCF: Job Openings vs NVIDIA Revenue",
+    subtitle = "Daily changes in job openings versus changes in carried-forward quarterly revenue"
+  )
+
+fig_ccf_diff_nvidia
+save_plot(fig_ccf_diff_nvidia, "CCF_diff_Job_Openings_vs_NVIDIA.png", width = 8)
 ```
 
 #### Strongest lead–lag relationships
@@ -864,9 +821,8 @@ The final `r test_horizon` days are held out as a test period. Every model is fi
 |----|----|----|
 | Univariate ARIMA (`auto.arima`) | None (own history) | Baseline |
 | Prophet | None (trend + weekly/yearly seasonality) | Baseline |
-| Regression + ARIMA errors | Technology stock prices | External signal |
-| Regression + ARIMA errors | Google Trends | External signal |
 | Regression + ARIMA errors | CAPEX + PPI | External signal |
+| Regression + ARIMA errors | NVIDIA revenue | External signal |
 
 Daily series are modelled with weekly seasonality (`frequency = 7`). The regression-with-ARIMA-error models use the **observed** predictor values in the test period (ex-post forecasts), so they measure how much the predictors explain out of sample rather than a fully operational forecast.
 
@@ -1009,9 +965,8 @@ arima_full_models
 
 predictor_sets <- list(
   "ARIMA (baseline)"       = NULL,
-  "ARIMAX: Stock Prices"   = stock_columns,
-  "ARIMAX: Google Trends"  = google_columns,
-  "ARIMAX: CAPEX + PPI"    = capex_ppi_columns
+  "ARIMAX: CAPEX + PPI"    = capex_ppi_columns,
+  "ARIMAX: NVIDIA Revenue" = nvidia_columns
 )
 
 forecast_runs <- cached("forecast_runs", local({
@@ -1082,8 +1037,8 @@ prophet_results
 # All predictions in one table
 # ------------------------------------------------------------
 
-model_order <- c("ARIMA (baseline)", "Prophet (baseline)", "ARIMAX: Stock Prices",
-                 "ARIMAX: Google Trends", "ARIMAX: CAPEX + PPI")
+model_order <- c("ARIMA (baseline)", "Prophet (baseline)", "ARIMAX: CAPEX + PPI",
+                 "ARIMAX: NVIDIA Revenue")
 
 all_predictions <- bind_rows(
   map_dfr(forecast_runs, ~ map_dfr(.x, "results")),
@@ -1137,81 +1092,7 @@ $$
 y_t = \beta_0 + \boldsymbol{\beta}^\top \mathbf{x}_t + n_t, \qquad n_t \sim \text{(S)ARIMA}(p,d,q)(P,D,Q)_7,
 $$
 
-where $\mathbf{x}_t$ is one group of external predictors and the ARIMA orders for the error process are chosen by `auto.arima`.
-
-### Job openings vs. technology stock prices
-
-::: panel-tabset
-#### Test period
-
-```{r}
-#| label: arimax-stock-test
-#| fig-width: 12
-#| fig-height: 9
-
-fig <- plot_actual_vs_predicted(
-  get_predictions("ARIMAX: Stock Prices"),
-  title = "Actual Versus Predicted Job Openings",
-  subtitle = "Regression with ARIMA errors using Microsoft, C3.ai, NVIDIA, and Alphabet stock prices"
-)
-fig
-save_plot(fig, "ARIMAX_Stocks_test_actual_vs_predicted.png", width = 12)
-```
-
-#### Whole series
-
-```{r}
-#| label: arimax-stock-whole
-#| fig-width: 12
-#| fig-height: 9
-
-fig <- plot_actual_vs_predicted(
-  get_predictions("ARIMAX: Stock Prices"),
-  title = "Actual Versus Fitted/Predicted Job Openings",
-  subtitle = "Regression with ARIMA errors using technology stock prices",
-  whole = TRUE
-)
-fig
-save_plot(fig, "ARIMAX_Stocks_whole_actual_vs_predicted.png", width = 12)
-```
-:::
-
-### Job openings vs. Google Trends
-
-::: panel-tabset
-#### Test period
-
-```{r}
-#| label: arimax-google-test
-#| fig-width: 12
-#| fig-height: 9
-
-fig <- plot_actual_vs_predicted(
-  get_predictions("ARIMAX: Google Trends"),
-  title = "Actual Versus Predicted Job Openings",
-  subtitle = "Regression with ARIMA errors using Google Trends search-interest variables"
-)
-fig
-save_plot(fig, "ARIMAX_Google_Trends_test_actual_vs_predicted.png", width = 12)
-```
-
-#### Whole series
-
-```{r}
-#| label: arimax-google-whole
-#| fig-width: 12
-#| fig-height: 9
-
-fig <- plot_actual_vs_predicted(
-  get_predictions("ARIMAX: Google Trends"),
-  title = "Actual Versus Fitted/Predicted Job Openings",
-  subtitle = "Regression with ARIMA errors using Google Trends search-interest variables",
-  whole = TRUE
-)
-fig
-save_plot(fig, "ARIMAX_Google_Trends_whole_actual_vs_predicted.png", width = 12)
-```
-:::
+where $\mathbf{x}_t$ contains one group of external predictors (CAPEX and PPI, or NVIDIA revenue) and the ARIMA orders for the error process are chosen by `auto.arima`.
 
 ### Job openings vs. CAPEX + PPI
 
@@ -1247,6 +1128,43 @@ fig <- plot_actual_vs_predicted(
 )
 fig
 save_plot(fig, "ARIMAX_CAPEX_PPI_whole_actual_vs_predicted.png", width = 12)
+```
+:::
+
+### Job openings vs. NVIDIA revenue
+
+::: panel-tabset
+#### Test period
+
+```{r}
+#| label: arimax-nvidia-test
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: NVIDIA Revenue"),
+  title = "Actual Versus Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using NVIDIA quarterly revenue"
+)
+fig
+save_plot(fig, "ARIMAX_NVIDIA_test_actual_vs_predicted.png", width = 12)
+```
+
+#### Whole series
+
+```{r}
+#| label: arimax-nvidia-whole
+#| fig-width: 12
+#| fig-height: 9
+
+fig <- plot_actual_vs_predicted(
+  get_predictions("ARIMAX: NVIDIA Revenue"),
+  title = "Actual Versus Fitted/Predicted Job Openings",
+  subtitle = "Regression with ARIMA errors using NVIDIA quarterly revenue",
+  whole = TRUE
+)
+fig
+save_plot(fig, "ARIMAX_NVIDIA_whole_actual_vs_predicted.png", width = 12)
 ```
 :::
 
@@ -1410,7 +1328,9 @@ dm_results %>%
 
 # Part 3 – Macroeconomic ARIMAX (Monthly)
 
-**Model:** DA job openings regressed on the Federal Funds Rate, Personal Consumption Expenditures (PCE), and the Producer Price Index for the Information sector, with SARIMA errors. All series are aggregated to a common monthly frequency and a common time period.
+**Model:** DA job openings regressed on the Federal Funds Rate, Personal Consumption Expenditures (PCE), the Producer Price Index for the Information sector, and NVIDIA quarterly revenue, with SARIMA errors. All series are aggregated to a common monthly frequency and a common time period.
+
+NVIDIA reports revenue quarterly. Following the Ridge Regression Simulator and the Elasticity Dashboard, each quarter's revenue (converted from US\$ millions to US\$ billions) is carried forward month by month from the month the quarter ends until the next quarter is reported.
 
 ## Data
 
@@ -1436,6 +1356,13 @@ indeed_da <- indeed_da %>%
   filter(countryCode == "US", sectorName == "Data & Analytics", postingType == "TOTAL") %>%
   select(Date = dateString, DataAnalysisJobPostings = value)
 
+# Monthly NVIDIA revenue (defined in the data-preparation section above)
+nvidia_monthly <- tibble(
+  Date = seq(floor_date(min(indeed_da$Date), "month"),
+             floor_date(max(indeed_da$Date), "month"), by = "month")
+) %>%
+  mutate(NVIDIARevenue = nvidia_step(Date))
+
 # Convert any dataset to monthly averages
 to_monthly <- function(df) {
   df %>%
@@ -1444,12 +1371,18 @@ to_monthly <- function(df) {
     summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
 }
 
-merged_data <- Reduce(
-  function(x, y) merge(x, y, by = "Date", all = FALSE),
-  list(to_monthly(indeed_da), to_monthly(fedfunds), to_monthly(pce), to_monthly(ppi_info))
-) %>%
-  arrange(Date) %>%
-  filter(if_all(-Date, ~ !is.na(.x)))
+# Merge one job-opening series with the four monthly predictors
+build_monthly <- function(job_df) {
+  Reduce(
+    function(x, y) merge(x, y, by = "Date", all = FALSE),
+    list(to_monthly(job_df), to_monthly(fedfunds), to_monthly(pce),
+         to_monthly(ppi_info), nvidia_monthly)
+  ) %>%
+    arrange(Date) %>%
+    filter(if_all(-Date, ~ !is.na(.x)))
+}
+
+merged_data <- build_monthly(indeed_da)
 
 df <- merged_data
 
@@ -1462,14 +1395,17 @@ monthly_variables <- c(
   DataAnalysisJobPostings = "Data Analysis Job Postings",
   FedFundsRate            = "Federal Funds Rate",
   PCE                     = "PCE",
-  PPIInformation          = "PPI Information"
+  PPIInformation          = "PPI Information",
+  NVIDIARevenue           = "NVIDIA Revenue ($B, quarterly)"
 )
+
+xreg_names <- c("FedFundsRate", "PCE", "PPIInformation", "NVIDIARevenue")
 
 cat("Common monthly period:", format(min(df$Date)), "to", format(max(df$Date)),
     "|", nrow(df), "monthly observations\n")
 
 kable(head(df), digits = 2,
-      caption = "Merged monthly dataset: DA job postings, Fed Funds Rate, PCE, and PPI (Information)") %>%
+      caption = "Merged monthly dataset: DA job postings, Fed Funds Rate, PCE, PPI (Information), and NVIDIA revenue") %>%
   kable_styling(full_width = FALSE)
 ```
 
@@ -1480,7 +1416,7 @@ kable(head(df), digits = 2,
 ```{r}
 #| label: monthly-plot
 #| fig-width: 11
-#| fig-height: 9
+#| fig-height: 11
 
 monthly_long <- df %>%
   pivot_longer(-Date, names_to = "Variable", values_to = "Value") %>%
@@ -1490,7 +1426,7 @@ fig_monthly <- ggplot(monthly_long, aes(Date, Value)) +
   geom_line(linewidth = 0.8, color = col_actual) +
   facet_grid(Variable ~ ., scales = "free_y", switch = "y") +
   labs(title = "Monthly Time Series",
-       subtitle = "Data Analysis job postings, Federal Funds Rate, PCE, and PPI (Information)",
+       subtitle = "Data Analysis job postings, Federal Funds Rate, PCE, PPI (Information), and NVIDIA revenue",
        x = "Year", y = NULL) +
   theme_ts() +
   theme(strip.placement = "outside",
@@ -1522,7 +1458,7 @@ for (var_name in names(monthly_variables)) {
 ```{r}
 #| label: monthly-acf
 #| fig-width: 11
-#| fig-height: 7
+#| fig-height: 9
 
 acf_plots <- lapply(names(monthly_variables), function(var_name) {
   ggAcf(df.ts[, var_name], lag.max = 30) +
@@ -1562,7 +1498,7 @@ If p-value \< 0.05 → reject the unit root → stationary; if p-value ≥ 0.05 
 #| label: monthly-auto-arima
 
 y    <- df.ts[, "DataAnalysisJobPostings"]
-xreg <- df.ts[, c("FedFundsRate", "PCE", "PPIInformation")]
+xreg <- df.ts[, xreg_names]
 
 fit_auto <- auto.arima(y, xreg = xreg)
 summary(fit_auto)
@@ -1573,18 +1509,20 @@ checkresiduals(fit_auto)
 
 ### Step 1: Regression
 
-We first fit a linear regression of DA job postings on the three macroeconomic indicators and then model the regression residuals as a (S)ARIMA process.
+We first fit a linear regression of DA job postings on the four predictors and then model the regression residuals as a (S)ARIMA process.
 
 ```{r}
 #| label: monthly-regression
 
-reg_model <- lm(DataAnalysisJobPostings ~ FedFundsRate + PCE + PPIInformation, data = df)
+reg_model <- lm(DataAnalysisJobPostings ~ FedFundsRate + PCE + PPIInformation + NVIDIARevenue, data = df)
 summary(reg_model)
 
 res.fit <- ts(residuals(reg_model), start = c(start_year, start_month), frequency = 12)
 
 ggAcf(res.fit) + ggtitle("ACF of Regression Residuals") + theme_minimal()
 ```
+
+In this plain regression every predictor, including NVIDIA revenue, looks highly significant. These p-values are overstated, because the residuals are strongly autocorrelated (see the ACF above) and both NVIDIA revenue and job postings trend over time. The ARIMAX estimates below, which model the error structure, are the ones to rely on.
 
 ```{r}
 #| label: auto-arima-residuals
@@ -1858,7 +1796,7 @@ for (model_name in names(diagnostic_models)) {
 - **ACF of residuals** shows no significant autocorrelation, indicating that the error structure has been captured.
 - **Q–Q plot** suggests approximately normal residuals with minor deviations in the tails.
 - **Ljung–Box p-values** remain mostly above 0.05, indicating no remaining autocorrelation.
-- **Coefficient significance:** check the p-values above; the selected SARIMA(1,0,1)(0,1,1)\[12\] model has significant AR, MA, and seasonal MA terms.
+- **Coefficient significance:** check the p-values above; in the selected SARIMA(1,0,1)(0,1,1)\[12\] model the AR and seasonal MA terms are significant and the MA term is borderline (p ≈ 0.05).
 
 ## Final model
 
@@ -1878,14 +1816,103 @@ summary(fit)
 round(coef(fit), 4)
 ```
 
+### Does NVIDIA revenue help?
+
+The same SARIMA error structure is refitted for each job-opening series with and without NVIDIA revenue. Software and overall job openings are built exactly like the DA series, from the daily Indeed files aggregated to monthly averages.
+
+```{r}
+#| label: other-jobs-models
+
+read_job_index <- function(file, name) {
+  x <- read.csv(file.path(data_folder, file))[, 1:2]
+  colnames(x) <- c("Date", name)
+  x$Date <- as.Date(x$Date)
+  x
+}
+
+job_series <- list(
+  "DA job openings"  = list(data = indeed_da,
+                            order = c(1, 0, 1), seasonal = c(0, 1, 1)),
+  "SW job openings"  = list(data = read_job_index("indeed-software.csv", "JobPostings"),
+                            order = c(1, 0, 1), seasonal = c(0, 1, 1)),
+  "ALL job openings" = list(data = read_job_index("indeed-all.csv", "JobPostings"),
+                            order = c(0, 1, 1), seasonal = c(0, 1, 1))
+)
+
+fit_job_model <- function(spec, xnames) {
+  d <- build_monthly(spec$data)
+  y_name <- setdiff(names(d), c("Date", xreg_names))
+  t_ <- ts(d[, -1], start = c(year(min(d$Date)), month(min(d$Date))), frequency = 12)
+  Arima(t_[, y_name], order = spec$order,
+        seasonal = list(order = spec$seasonal, period = 12),
+        xreg = t_[, xnames, drop = FALSE])
+}
+
+job_fits <- lapply(job_series, function(spec) {
+  list(with_nvidia    = fit_job_model(spec, xreg_names),
+       without_nvidia = fit_job_model(spec, setdiff(xreg_names, "NVIDIARevenue")))
+})
+
+nvidia_check <- imap_dfr(job_fits, function(f, job) {
+  est <- coef(f$with_nvidia)["NVIDIARevenue"]
+  se  <- sqrt(diag(vcov(f$with_nvidia)))["NVIDIARevenue"]
+  tibble(
+    Series                 = job,
+    `NVIDIA coefficient`   = est,
+    `Std. error`           = se,
+    `z`                    = est / se,
+    `p-value`              = 2 * pnorm(-abs(est / se)),
+    `AICc without NVIDIA`  = f$without_nvidia$aicc,
+    `AICc with NVIDIA`     = f$with_nvidia$aicc,
+    `Better AICc`          = if_else(f$with_nvidia$aicc < f$without_nvidia$aicc,
+                                     "With NVIDIA", "Without NVIDIA")
+  )
+})
+
+save_table(nvidia_check, "Monthly_NVIDIA_check.csv")
+
+kable(nvidia_check, digits = 3,
+      caption = "Effect of adding NVIDIA revenue (US$ billions per quarter) to the monthly ARIMAX models") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
 ### Model equations
 
+```{r}
+#| label: equation-helpers
+
+reg_eq <- function(fit) {
+  b      <- coef(fit)[xreg_names]
+  terms  <- paste0(sprintf("%.4f", abs(b)), "\\,\\text{", xreg_names, "}_t")
+  signs  <- if_else(b < 0, "-", "+")
+  lines  <- paste0(signs, " ", terms)
+  lines[1] <- sub("^\\+ ", "", lines[1])
+  paste0("\\begin{aligned} y_t &= ", lines[1], " \\\\ &\\quad ",
+         paste(lines[-1], collapse = " \\\\ &\\quad "), " \\\\ &\\quad + n_t \\end{aligned}")
+}
+
+signed_term <- function(x, symbol, power = "") {
+  paste0(if_else(x < 0, "-", "+"), sprintf("%.4f", abs(x)), symbol, power)
+}
+
+error_terms <- function(fit, ar = TRUE) {
+  co  <- coef(fit)
+  lhs <- paste0(if (ar) paste0("(1", signed_term(-co["ar1"], "B"), ")") else "(1-B)", "(1-B^{12})")
+  rhs <- paste0("(1", signed_term(co["ma1"], "B"), ")(1", signed_term(co["sma1"], "B", "^{12}"), ")")
+  paste0(lhs, "\\,n_t = ", rhs, "\\,w_t")
+}
+
+fit_da  <- job_fits[["DA job openings"]]$with_nvidia
+fit_sw  <- job_fits[["SW job openings"]]$with_nvidia
+fit_all <- job_fits[["ALL job openings"]]$with_nvidia
+```
+
 ::: {.callout-note title="DA Job Openings: Regression with SARIMA(1,0,1)(0,1,1)[12] Errors"}
-$$y_t = \beta_1 X_{1t} + \beta_2 X_{2t} + \beta_3 X_{3t} + n_t$$
+$$y_t = \beta_1 X_{1t} + \beta_2 X_{2t} + \beta_3 X_{3t} + \beta_4 X_{4t} + n_t$$
 
-where $y_t$ is **Data Analysis Job Postings** and $n_t$ is the SARIMA error term. With the estimated regression coefficients:
+where $y_t$ is **Data Analysis Job Postings**, $X_1$ to $X_4$ are the Federal Funds Rate, PCE, PPI (Information), and NVIDIA revenue (US\$ billions), and $n_t$ is the SARIMA error term. With the estimated regression coefficients:
 
-$$y_t = -8.9769\,\text{FedFundsRate}_t + 0.0064\,\text{PCE}_t - 0.8042\,\text{PPIInformation}_t + n_t$$
+$$`r reg_eq(fit_da)`$$
 
 The error term follows
 
@@ -1895,21 +1922,21 @@ which for the selected model is
 
 $$(1-\phi_1B)(1-B^{12})\,n_t = (1+\theta_1B)(1+\Theta_1B^{12})\,w_t$$
 
-$$(1-0.9824B)(1-B^{12})\,n_t = (1+0.8091B)(1-0.6881B^{12})\,w_t$$
+$$`r error_terms(fit_da)`$$
 :::
 
 The same workflow applied to software and overall job openings produced the following models:
 
 ::: {.callout-note title="SW Job Openings: Regression with SARIMA(1,0,1)(0,1,1)[12] Errors"}
-$$y_t = -12.973\,\text{FedFundsRate}_t + 0.0047\,\text{PCE}_t - 1.3354\,\text{PPIInformation}_t + n_t$$
+$$`r reg_eq(fit_sw)`$$
 
-$$(1-0.9881B)(1-B^{12})\,n_t = (1+0.8037B)(1-0.9997B^{12})\,w_t$$
+$$`r error_terms(fit_sw)`$$
 :::
 
 ::: {.callout-note title="All Job Openings: Regression with SARIMA(0,1,1)(0,1,1)[12] Errors"}
-$$y_t = -1.4234\,\text{FedFundsRate}_t + 0.0069\,\text{PCE}_t + 0.2231\,\text{PPIInformation}_t + n_t$$
+$$`r reg_eq(fit_all)`$$
 
-$$(1-B)(1-B^{12})\,n_t = (1+0.8082B)(1-0.6614B^{12})\,w_t$$
+$$`r error_terms(fit_all, ar = FALSE)`$$
 :::
 
 ## Forecasting
@@ -1921,7 +1948,7 @@ Each exogenous variable is first forecast with its own `auto.arima` model; those
 
 monthly_h <- 36
 
-fxreg <- sapply(c("FedFundsRate", "PCE", "PPIInformation"), function(var_name) {
+fxreg <- sapply(xreg_names, function(var_name) {
   as.numeric(forecast(auto.arima(xreg[, var_name]), h = monthly_h)$mean)
 })
 
@@ -1978,13 +2005,16 @@ best_models %>%
 
 **Summary of findings**
 
-- **External technology signals help for AI-exposed roles.** Models that add technology-related signals (Google Trends, technology stock prices, CAPEX/PPI) improve test-period forecasts for data analytics and software job openings relative to univariate baselines.
-- **Overall job openings follow their own history.** All U.S. job openings are best predicted using their own historical trends; external AI-related predictors add little.
+- **CAPEX and PPI add little at the daily horizon.** The simple univariate ARIMA baseline has the lowest test-period error for data analytics and software job openings, and the Diebold–Mariano tests show the CAPEX + PPI model is significantly worse there. For overall job openings, CAPEX + PPI is only about 1% more accurate than the baseline, which is not a statistically significant difference.
+- **NVIDIA revenue gives a mixed picture at the daily horizon.** For data analytics, the NVIDIA ARIMAX model has the lowest test-period error (about 3.8% below the ARIMA baseline, with a significant Diebold–Mariano test). For software it is about 3% worse than the baseline, and for overall openings it is essentially tied. NVIDIA revenue is constant for 35 of the 36 test days, so these differences mostly reflect the different error model that `auto.arima` selects, not new information from revenue, and should not be read as evidence that revenue predicts daily postings. The CCF on levels is significantly negative (shared trends), while no first-difference CCF value for NVIDIA is outside the 95% limits.
+- **Prophet is the weakest baseline.** It is significantly less accurate than univariate ARIMA for all three job-opening series.
 - **Lead–lag structure.** CCFs on raw levels are dominated by shared trends; after first differencing, the remaining significant lags (see the peak table) indicate which signals lead changes in job openings.
+- **NVIDIA revenue is not a reliable driver (monthly).** Once the error structure is modeled, NVIDIA revenue has a positive but statistically insignificant coefficient for data analytics (p ≈ 0.18) and overall job openings (p ≈ 0.55), and a borderline one for software (p ≈ 0.06). Adding it does not improve AICc for DA or ALL, and improves it only slightly for SW (see the NVIDIA comparison table). Its strong negative association in the plain regression reflects a shared time trend rather than a usable signal.
 - **Macroeconomic drivers (monthly).** The Federal Funds Rate has a strong negative association with DA and SW postings (larger in magnitude for SW), consistent with tighter monetary conditions reducing hiring in technology-related roles, while its effect on overall openings is much smaller. PCE enters positively for all three series, and PPI (Information) is negatively associated with DA and SW but positively with overall openings, highlighting how technology-related roles respond differently to sector-level pricing conditions.
 
 **Limitations**
 
 - ARIMAX test forecasts use observed predictor values (ex-post); operational forecasts would require forecasting the predictors as well (as done in Part 3).
-- Several predictors (Google Trends, CAPEX, PPI) are interpolated to a daily frequency, which smooths their dynamics.
+- CAPEX and PPI are interpolated to a daily frequency, which smooths their dynamics.
+- NVIDIA revenue is reported quarterly. It is carried forward across each quarter's days and months, so it moves in steps, and each quarter's figure is assigned from the quarter-end month, before it would actually have been published.
 - CCF and regression results describe association, not causation.

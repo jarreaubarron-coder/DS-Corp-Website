@@ -11,13 +11,11 @@ website:
       - href: ds.qmd
         text: Data Sources
       - href: elasticity_dashboard_standalone.html
-        text: Elasticity Dashboard
+        text: Data Visualization 1 - Cross Price Elasticity Dashboard
       - href: Interactive Ridge Regression Forecast Simulator.html
-        text: Ridge Regression Forecast Simulator
-      - href: DV.qmd
-        text: Data Visualization
+        text: Data Visualization 2 - Ridge Regression Forecast Simulator
       - href: AI_Job_Openings_Time_Series_runs_faster.qmd
-        text: Time Series Analysis
+        text: Stats for Nerds
       - href: DL.qmd
         text: Deep Learning Analysis
       - href: MC.qmd

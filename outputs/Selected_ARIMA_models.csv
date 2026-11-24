@@ -1,13 +1,10 @@
 Model,Job_Openings,Selected_Model,AICc
-ARIMA (baseline),All Job Openings,"ARIMA(1,2,1)(0,0,1)[7]",-3897.623373658894
-ARIMA (baseline),DA Job Openings,"ARIMA(0,2,1)(1,0,2)[7]",-1948.1067557471938
-ARIMA (baseline),SW Job Openings,"ARIMA(0,2,2)(1,0,2)[7]",-1755.356228516353
-ARIMAX: Stock Prices,All Job Openings,"Regression with ARIMA(2,1,1)(2,0,0)[7] errors",-3554.8569770605427
-ARIMAX: Stock Prices,DA Job Openings,"Regression with ARIMA(1,1,1)(2,0,0)[7] errors",-1660.1730676805107
-ARIMAX: Stock Prices,SW Job Openings,"Regression with ARIMA(1,1,2)(2,0,0)[7] errors",-1398.129686632983
-ARIMAX: Google Trends,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3893.705743044759
-ARIMAX: Google Trends,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,2)[7] errors",-1944.1386756247757
-ARIMAX: Google Trends,SW Job Openings,"Regression with ARIMA(0,2,2)(1,0,2)[7] errors",-1751.7844695181811
-ARIMAX: CAPEX + PPI,All Job Openings,"Regression with ARIMA(1,2,1)(0,0,1)[7] errors",-3895.760467742332
-ARIMAX: CAPEX + PPI,DA Job Openings,"Regression with ARIMA(0,2,1)(1,0,2)[7] errors",-1944.6334566131245
-ARIMAX: CAPEX + PPI,SW Job Openings,"Regression with ARIMA(0,2,2)(1,0,2)[7] errors",-1752.0194721361295
+ARIMA (baseline),All Job Openings,"ARIMA(2,2,3)(2,0,1)[7]",-4436.320789963486
+ARIMA (baseline),DA Job Openings,"ARIMA(2,2,2)(1,0,1)[7]",-2373.3041049969574
+ARIMA (baseline),SW Job Openings,"ARIMA(0,2,1)(0,0,1)[7]",-2213.8901345370937
+ARIMAX: CAPEX + PPI,All Job Openings,"Regression with ARIMA(2,2,3)(2,0,1)[7] errors",-4433.196921541748
+ARIMAX: CAPEX + PPI,DA Job Openings,"Regression with ARIMA(2,2,2)(1,0,1)[7] errors",-2370.5925732895494
+ARIMAX: CAPEX + PPI,SW Job Openings,"Regression with ARIMA(0,2,1)(0,0,1)[7] errors",-2213.4444214272257
+ARIMAX: NVIDIA Revenue,All Job Openings,"Regression with ARIMA(2,2,3)(2,0,1)[7] errors",-4435.576659860757
+ARIMAX: NVIDIA Revenue,DA Job Openings,"Regression with ARIMA(2,2,2)(1,0,1)[7] errors",-2372.5114904497636
+ARIMAX: NVIDIA Revenue,SW Job Openings,"Regression with ARIMA(0,2,1)(0,0,1)[7] errors",-2211.90878856524
