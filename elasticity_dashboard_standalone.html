@@ -65,6 +65,48 @@
             </div>
         </div>
 
+        <details open class="bg-white p-6 rounded-xl shadow-sm border border-gray-100" id="plain-english-guide">
+            <summary class="text-md font-semibold text-gray-800 cursor-pointer">Plain-English guide: how to read this dashboard</summary>
+            <div class="mt-4 space-y-4 text-sm text-gray-600">
+                <p>
+                    <span class="font-medium text-gray-800">The question.</span>
+                    When the price of something (or a company's revenue) goes up, do job postings go up or down, and by how much?
+                    This dashboard measures that link for software jobs, overall jobs, and a merged jobs index, using either
+                    NVIDIA's quarterly revenue or the prices businesses pay for data processing services (PPI) as the comparison.
+                    The measure is called <em>cross-price elasticity</em>: the percent change in job postings that goes with a 1% change in the other variable.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-800 mb-1">Reading the numbers</h4>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-medium">Negative:</span> job postings tend to fall when the other variable rises. <span class="font-medium">Positive:</span> they tend to rise with it.</li>
+                            <li><span class="font-medium">Size:</span> a value of &minus;0.2 means a 1% rise goes with about a 0.2% drop in postings. Anything beyond 1 (up or down) is a strong reaction.</li>
+                            <li><span class="font-medium">Timing:</span> Lag 0 is the same quarter; Lags 1 to 3 are one to three quarters later. The Long-Run number adds them all up to give the total effect over a year.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-800 mb-1">The four boxes and two charts</h4>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-medium">Long-Run and Immediate:</span> the total effect over a year, and the effect right away.</li>
+                            <li><span class="font-medium">R-squared:</span> how much of the ups and downs in job postings the model accounts for. Closer to 1 means more.</li>
+                            <li><span class="font-medium">Durbin-Watson:</span> a reliability check. Below 1.5 means the model's misses are linked from one period to the next, so treat the results as rough.</li>
+                            <li><span class="font-medium">Bar chart:</span> the effect at each timing. <span class="font-medium">Line chart:</span> both series squeezed onto a 0&ndash;1 scale so their shapes can be compared.</li>
+                        </ul>
+                    </div>
+                </div>
+                <p>
+                    <span class="font-medium text-gray-800">Example.</span>
+                    With the starting selection (Software Job Postings and NVIDIA Quarterly Revenue), a 1% rise in NVIDIA's revenue goes with roughly a 1% drop in software postings in the same quarter.
+                    A rebound three quarters later offsets part of that, so the net effect over a year is smaller, about &minus;0.4%.
+                </p>
+                <p class="text-gray-500">
+                    <span class="font-medium text-gray-700">Be careful.</span>
+                    These are patterns, not proof that one thing causes the other: both series also move with the wider economy and with time.
+                    Many of the individual lag results are not statistically strong, and every combination here has a Durbin-Watson below 1.5, so the numbers are best used to compare directions and rough sizes rather than as exact predictions.
+                </p>
+            </div>
+        </details>
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cumulative (Long-Run) XED</h3>
