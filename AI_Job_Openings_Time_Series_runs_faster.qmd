@@ -13,12 +13,26 @@ format:
     number-sections: true
     fig-align: center
     theme: cosmo
+    tbl-cap-location: bottom
+    fig-cap-location: bottom
+crossref:
+  title-delim: "."
 execute:
   warning: false
   error: false
   message: false
 editor: visual
 ---
+
+```{=html}
+<style>
+  figcaption, .quarto-float-caption, .table-caption, caption {
+    text-align: left !important; font-size: 0.92rem; line-height: 1.45; color: #3c4650;
+  }
+  .quarto-float-caption-bottom { margin-top: 0.6rem; }
+  .quarto-float { margin-bottom: 2rem; }
+</style>
+```
 
 # Introduction
 
@@ -37,6 +51,8 @@ The rapid growth of generative AI raises important questions about how AI adopti
 | CAPEX, PPI (Information) | Capital expenditure and producer price index (daily-interpolated) | FRED |
 | FEDFUNDS, PCE, PPI (Information) | Monthly macroeconomic indicators | FRED |
 | NVIDIA revenue | Quarterly revenue (US\$ millions), converted to US\$ billions and carried forward across each quarter's months and days (the same series used in the Ridge Regression Simulator and the Elasticity Dashboard) | NVIDIA quarterly results |
+
+: **Data used in this analysis.** The variables, what they measure, and where they come from. {#tbl-data}
 
 ::: {.callout-tip appearance="simple" icon="false"}
 ## Plain-English summary
@@ -183,7 +199,8 @@ save_table <- function(data, file_name) {
 NVIDIA reports revenue once a quarter. Following the Ridge Regression Simulator and the Elasticity Dashboard, each quarter's revenue (US\$ millions, converted here to US\$ billions) is carried forward from the month the quarter ends until the next quarter is reported. The same step series is used for the daily analysis (Parts 1 and 2) and the monthly analysis (Part 3).
 
 ```{r}
-#| label: nvidia-data
+#| label: tbl-nvidia-recent
+#| tbl-cap: "**NVIDIA revenue, most recent quarters.** Revenue is reported once per quarter, in billions of US dollars. Each value is carried forward across the following months and days so it can be lined up with the job-posting data."
 
 nvidia_q <- read.csv(nvidia_file, skip = 2, header = FALSE,
                      col.names = c("Date", "Revenue"), stringsAsFactors = FALSE) %>%
@@ -200,8 +217,7 @@ nvidia_step <- function(dates) {
 
 nvidia_q %>%
   slice_tail(n = 8) %>%
-  kable(digits = 3, col.names = c("Quarter-end month", "Revenue (US$ billions)"),
-        caption = "Most recent quarters of NVIDIA revenue") %>%
+  kable(digits = 3, col.names = c("Quarter-end month", "Revenue (US$ billions)")) %>%
   kable_styling(full_width = FALSE)
 ```
 
@@ -210,7 +226,8 @@ nvidia_q %>%
 Each file is read, its date column is detected and parsed, and every other column is prefixed with the file name so that variables remain identifiable after merging. The datasets are then restricted to their common overlapping period.
 
 ```{r}
-#| label: load-data
+#| label: tbl-study-period
+#| tbl-cap: "**Common study period.** The date range and size of the daily data once every source is trimmed to the dates they all share."
 
 files <- c(
   "all_capex_ppi_daily_interpolated.csv",
@@ -276,14 +293,15 @@ tibble(
   Rows         = nrow(combined_data),
   Columns      = ncol(combined_data)
 ) %>%
-  kable(caption = "Common study period") %>%
+  kable() %>%
   kable_styling(full_width = FALSE)
 ```
 
 ## Select the analysis variables
 
 ```{r}
-#| label: select-columns
+#| label: tbl-daily-variables
+#| tbl-cap: "**Variables used in the daily analysis.** Each job-opening series and each outside predictor, grouped by type, with the data column it comes from."
 
 get_numeric_columns <- function(pattern) {
   columns <- grep(pattern, names(combined_data), value = TRUE, ignore.case = TRUE)
@@ -329,7 +347,7 @@ tibble(
   Series = c(names(job_columns), names(predictor_columns)),
   Column = c(unname(job_columns), unname(predictor_columns))
 ) %>%
-  kable(caption = "Variables used in the daily analysis") %>%
+  kable() %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
 ```
 
@@ -341,7 +359,8 @@ The merged data are placed on a complete daily calendar (duplicate dates are ave
 - `model_data`: all gaps are filled with `forecast::na.interp()` (used for regression and forecasting models).
 
 ```{r}
-#| label: daily-data
+#| label: tbl-daily-datasets
+#| tbl-cap: "**The two daily datasets.** Number of days and leftover missing values in the version used for the CCF and in the fully gap-filled version used for the models."
 
 needed_columns <- unique(c("Date", unname(job_columns), unname(predictor_columns)))
 
@@ -376,7 +395,7 @@ tibble(
   Days    = c(nrow(ccf_data), nrow(model_data)),
   Missing_values = c(sum(is.na(ccf_data[-1])), sum(is.na(model_data[-1])))
 ) %>%
-  kable(caption = "Daily datasets") %>%
+  kable() %>%
   kable_styling(full_width = FALSE)
 ```
 
@@ -454,7 +473,8 @@ plot_jobs_with <- function(pred_lookup, pred_title, pred_subtitle,
 ### Job openings, CAPEX, and PPI
 
 ```{r}
-#| label: eda-capex
+#| label: fig-eda-capex
+#| fig-cap: "**Job openings, CAPEX and PPI over time.** Daily job-posting indices (top) above capital expenditure and the producer price index (bottom). Each panel has its own scale, so compare shapes rather than levels."
 #| fig-width: 13
 #| fig-height: 10
 
@@ -482,7 +502,8 @@ save_plot(fig_jo_econ, "EDA_Job_Openings_vs_CAPEX_PPI.png", height = 10)
 ### Job openings and NVIDIA revenue
 
 ```{r}
-#| label: eda-nvidia
+#| label: fig-eda-nvidia
+#| fig-cap: "**Job openings and NVIDIA revenue over time.** Revenue is reported quarterly, so it appears as a staircase that steps up when each new quarter is reported."
 #| fig-width: 13
 #| fig-height: 8
 
@@ -508,7 +529,8 @@ save_plot(fig_jo_nvidia, "EDA_Job_Openings_vs_NVIDIA.png", height = 8)
 As a first look at explanatory power, each job-opening series is regressed on each predictor group separately (CAPEX and PPI; NVIDIA revenue; contemporaneous values, no time-series error structure). Because these are trending series, the R² values describe co-movement and should not be read as causal effects; residual autocorrelation is addressed in Parts 2 and 3.
 
 ```{r}
-#| label: regression
+#| label: tbl-regression
+#| tbl-cap: "**Simple regressions of job openings on each predictor group.** R-squared shows how much of the movement in job openings each group tracks. It describes co-movement, not cause, because these series trend over time."
 
 fit_models <- function(predictors) {
   lapply(job_columns, function(outcome) {
@@ -542,7 +564,7 @@ regression_results <- imap_dfr(regression_models, function(models, group) {
 save_table(regression_results, "Regression_Model_Summary.csv")
 
 regression_results %>%
-  kable(digits = 3, caption = "Linear regression of job openings on each predictor group") %>%
+  kable(digits = 3) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1, valign = "top")
 ```
@@ -703,7 +725,8 @@ ccf_stem_plot <- function(ccf_df, title, subtitle, facet = c("grid", "wrap")) {
 ### CCF on levels
 
 ```{r}
-#| label: ccf-levels
+#| label: fig-ccf-levels
+#| fig-cap: "**Cross-correlation of job openings and predictors, in levels.** Each cell is the correlation at one lag (red positive, blue negative). Similar colors at every lag point to a shared trend rather than a true lead-lag link."
 #| fig-width: 15
 #| fig-height: 12
 
@@ -737,7 +760,8 @@ save_table(ccf_diff, "CCF_first_difference_all_values.csv")
 ```
 
 ```{r}
-#| label: ccf-diff-heatmap
+#| label: fig-ccf-diff-heatmap
+#| fig-cap: "**Cross-correlation of daily changes.** The same heatmap after taking day-to-day changes, which removes shared trends and gives a more reliable view of which series moves first."
 #| fig-width: 15
 #| fig-height: 12
 
@@ -754,7 +778,8 @@ save_plot(fig_ccf_diff_heat, "CCF_first_difference_heatmap.png", width = 15, hei
 #### CAPEX and PPI
 
 ```{r}
-#| label: ccf-diff-capex
+#| label: fig-ccf-diff-capex
+#| fig-cap: "**Daily-change CCF: job openings vs CAPEX and PPI.** Bars outside the dashed 95% limits (dark blue) are statistically meaningful. Positive lags mean the predictor leads job openings."
 #| fig-width: 11
 #| fig-height: 9
 
@@ -776,7 +801,8 @@ NVIDIA revenue is a quarterly step series, so its *daily* change is zero on almo
 :::
 
 ```{r}
-#| label: ccf-diff-nvidia
+#| label: fig-ccf-diff-nvidia
+#| fig-cap: "**Daily-change CCF: job openings vs NVIDIA revenue.** Revenue changes only a few times a year, so very few days carry any signal. Read these correlations with caution."
 #| fig-width: 8
 #| fig-height: 9
 
@@ -794,7 +820,8 @@ save_plot(fig_ccf_diff_nvidia, "CCF_diff_Job_Openings_vs_NVIDIA.png", width = 8)
 #### Strongest lead–lag relationships
 
 ```{r}
-#| label: ccf-peaks
+#| label: tbl-ccf-peaks
+#| tbl-cap: "**Strongest lead-lag relationship for each pair.** For every job series and predictor, the lag where the correlation of daily changes is largest. A positive lag means the predictor moves first, and Significant marks values outside the 95% limits."
 
 peak_levels <- ccf_peaks(ccf_levels)
 peak_diff   <- ccf_peaks(ccf_diff)
@@ -803,8 +830,7 @@ save_table(peak_levels, "CCF_levels_peak_values.csv")
 save_table(peak_diff,   "CCF_first_difference_peak_values.csv")
 
 peak_diff %>%
-  kable(digits = 3,
-        caption = "Strongest first-difference CCF for each job-opening / predictor pair") %>%
+  kable(digits = 3) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
   collapse_rows(columns = 1:2, valign = "top") %>%
   scroll_box(height = "500px")
@@ -822,6 +848,8 @@ The final `r test_horizon` days are held out as a test period. Every model is fi
 | Prophet | None (trend + weekly/yearly seasonality) | Baseline |
 | Regression + ARIMA errors | CAPEX + PPI | External signal |
 | Regression + ARIMA errors | NVIDIA revenue | External signal |
+
+: **Forecasting models compared.** Two baselines that use only a job series' own history, and ARIMAX models that add one group of outside predictors. {#tbl-design}
 
 Daily series are modelled with weekly seasonality (`frequency = 7`). The regression-with-ARIMA-error models use the **observed** predictor values in the test period (ex-post forecasts), so they measure how much the predictors explain out of sample rather than a fully operational forecast.
 
@@ -908,7 +936,8 @@ plot_actual_vs_predicted <- function(pred_df, title, subtitle, whole = FALSE) {
 Separate `auto.arima` models are fitted to the full history of each series to show the next `r forecast_horizon` days.
 
 ```{r}
-#| label: arima-future
+#| label: fig-arima-future
+#| fig-cap: "**Univariate ARIMA forecasts.** Each job series is projected forward from its own history alone. The red line is the forecast, and the shaded bands are 80% and 95% prediction intervals."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1054,7 +1083,8 @@ get_predictions <- function(model_name) filter(all_predictions, Model == model_n
 ### Univariate ARIMA: actual vs predicted
 
 ```{r}
-#| label: arima-test
+#| label: fig-arima-test
+#| fig-cap: "**ARIMA baseline on the test days.** Predicted versus actual job openings over the held-out final days, with a 95% prediction band. The closer the lines, the better the forecast."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1070,7 +1100,8 @@ save_plot(fig, "ARIMA_baseline_actual_vs_predicted.png", width = 12)
 ### Prophet: actual vs predicted
 
 ```{r}
-#| label: prophet-test
+#| label: fig-prophet-test
+#| fig-cap: "**Prophet baseline on the test days.** The same comparison using Prophet, which fits a smooth trend plus weekly and yearly patterns."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1099,7 +1130,8 @@ where $\mathbf{x}_t$ contains one group of external predictors (CAPEX and PPI, o
 #### Test period
 
 ```{r}
-#| label: arimax-capex-test
+#| label: fig-arimax-capex-test
+#| fig-cap: "**ARIMAX with CAPEX and PPI, test period.** Forecasts from a regression with ARIMA errors that uses CAPEX and PPI as outside clues, compared with the actual values."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1115,7 +1147,8 @@ save_plot(fig, "ARIMAX_CAPEX_PPI_test_actual_vs_predicted.png", width = 12)
 #### Whole series
 
 ```{r}
-#| label: arimax-capex-whole
+#| label: fig-arimax-capex-whole
+#| fig-cap: "**ARIMAX with CAPEX and PPI, whole series.** Fitted values over the training period and predictions over the test period (to the right of the dotted line)."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1136,7 +1169,8 @@ save_plot(fig, "ARIMAX_CAPEX_PPI_whole_actual_vs_predicted.png", width = 12)
 #### Test period
 
 ```{r}
-#| label: arimax-nvidia-test
+#| label: fig-arimax-nvidia-test
+#| fig-cap: "**ARIMAX with NVIDIA revenue, test period.** Forecasts from a regression with ARIMA errors that uses NVIDIA revenue as the outside clue, compared with the actual values."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1152,7 +1186,8 @@ save_plot(fig, "ARIMAX_NVIDIA_test_actual_vs_predicted.png", width = 12)
 #### Whole series
 
 ```{r}
-#| label: arimax-nvidia-whole
+#| label: fig-arimax-nvidia-whole
+#| fig-cap: "**ARIMAX with NVIDIA revenue, whole series.** Fitted values over the training period and predictions over the test period (to the right of the dotted line)."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1170,7 +1205,8 @@ save_plot(fig, "ARIMAX_NVIDIA_whole_actual_vs_predicted.png", width = 12)
 ### Selected models
 
 ```{r}
-#| label: selected-models
+#| label: tbl-selected-models
+#| tbl-cap: "**Models chosen by auto.arima.** The error structure each forecasting model settled on for every job series, with AICc as the fit score (lower is better)."
 
 extract_model_description <- function(model) {
   output <- capture.output(print(model))
@@ -1193,7 +1229,7 @@ selected_models <- imap_dfr(forecast_runs, function(runs, set_name) {
 save_table(selected_models, "Selected_ARIMA_models.csv")
 
 selected_models %>%
-  kable(digits = 1, caption = "Models selected by auto.arima (training period)",
+  kable(digits = 1,
         col.names = c("Model", "Job Openings", "Selected Model", "AICc")) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed")) %>%
   collapse_rows(columns = 1, valign = "top")
@@ -1217,7 +1253,8 @@ for (set_name in names(forecast_runs)) {
 ### Test-period accuracy
 
 ```{r}
-#| label: accuracy
+#| label: tbl-accuracy
+#| tbl-cap: "**Accuracy on the held-out test days.** RMSE, MAE and MAPE measure forecast error (lower is better). The last column compares each model with the ARIMA baseline, and bold rows mark the best model for each job series."
 
 accuracy_table <- all_predictions %>%
   filter(Period == "Test") %>%
@@ -1243,16 +1280,15 @@ accuracy_table %>%
   select(-Best) %>%
   kable(digits = 3,
         col.names = c("Job Openings", "Model", "RMSE", "MAE", "MAPE (%)",
-                      "RMSE change vs ARIMA (%)"),
-        caption = paste0("Test-period accuracy (final ", test_horizon,
-                         " days). Bold rows have the lowest RMSE for that job type.")) %>%
+                      "RMSE change vs ARIMA (%)")) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
   row_spec(which(accuracy_table$Best), bold = TRUE, background = "#FFF3B0") %>%
   collapse_rows(columns = 1, valign = "top")
 ```
 
 ```{r}
-#| label: accuracy-plot
+#| label: fig-accuracy
+#| fig-cap: "**Test-period error by model.** RMSE for every model and job series. Shorter bars are better, and the best model in each panel is highlighted."
 #| fig-width: 12
 #| fig-height: 6
 
@@ -1274,14 +1310,15 @@ save_plot(fig_accuracy, "Test_RMSE_by_model.png", width = 12, height = 6)
 ```
 
 ```{r}
-#| label: best-models
+#| label: tbl-best-models
+#| tbl-cap: "**Best model for each job series.** The model with the lowest test-period RMSE, and how far its error sits above or below the ARIMA baseline."
 
 best_models <- accuracy_table %>%
   filter(Best) %>%
   select(Job_Type, Best_Model = Model, RMSE, RMSE_vs_ARIMA)
 
 best_models %>%
-  kable(digits = 3, caption = "Best model for each job-opening series",
+  kable(digits = 3,
         col.names = c("Job Openings", "Best Model", "RMSE", "RMSE change vs ARIMA (%)")) %>%
   kable_styling(full_width = FALSE)
 ```
@@ -1291,7 +1328,8 @@ best_models %>%
 The Diebold–Mariano (DM) test checks whether the squared-error loss of each external-predictor model differs significantly from the univariate ARIMA baseline over the test period. Because all test forecasts come from a single forecast origin (horizons 1 to `r test_horizon`), the test is used here as a descriptive guide rather than a formal multi-origin comparison.
 
 ```{r}
-#| label: dm-tests
+#| label: tbl-dm-tests
+#| tbl-cap: "**Diebold-Mariano tests against the ARIMA baseline.** Each test asks whether a model's forecast errors differ from the baseline's. A p-value under 0.05 marks a clear difference, and the lower-error model is named."
 
 baseline_errors <- all_predictions %>%
   filter(Period == "Test", Model == "ARIMA (baseline)") %>%
@@ -1319,8 +1357,7 @@ save_table(dm_results, "Diebold_Mariano_vs_ARIMA.csv")
 dm_results %>%
   kable(digits = 3,
         col.names = c("Job Openings", "Model", "DM Statistic", "p-value",
-                      "Lower-Loss Model", "Significant (5%)"),
-        caption = "Diebold–Mariano tests: each model versus the univariate ARIMA baseline") %>%
+                      "Lower-Loss Model", "Significant (5%)")) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed")) %>%
   collapse_rows(columns = 1, valign = "top")
 ```
@@ -1334,7 +1371,8 @@ NVIDIA reports revenue quarterly. Following the Ridge Regression Simulator and t
 ## Data
 
 ```{r}
-#| label: monthly-data
+#| label: tbl-monthly-data
+#| tbl-cap: "**First rows of the monthly dataset.** DA job postings, the Federal Funds Rate, PCE, PPI (Information) and NVIDIA revenue, lined up by month."
 
 fedfunds  <- read.csv(file.path(monthly_data_folder, "FEDFUNDS.csv"))
 indeed_da <- read.csv(file.path(monthly_data_folder, "indeed_data_analysis_job_postings.csv"))
@@ -1403,8 +1441,7 @@ xreg_names <- c("FedFundsRate", "PCE", "PPIInformation", "NVIDIARevenue")
 cat("Common monthly period:", format(min(df$Date)), "to", format(max(df$Date)),
     "|", nrow(df), "monthly observations\n")
 
-kable(head(df), digits = 2,
-      caption = "Merged monthly dataset: DA job postings, Fed Funds Rate, PCE, PPI (Information), and NVIDIA revenue") %>%
+kable(head(df), digits = 2) %>%
   kable_styling(full_width = FALSE)
 ```
 
@@ -1413,7 +1450,8 @@ kable(head(df), digits = 2,
 ### Time-series plots
 
 ```{r}
-#| label: monthly-plot
+#| label: fig-monthly
+#| fig-cap: "**Monthly time series.** DA job postings and the four predictors on a common monthly axis, each with its own vertical scale."
 #| fig-width: 11
 #| fig-height: 11
 
@@ -1438,7 +1476,15 @@ save_plot(fig_monthly, "Monthly_time_series.png", width = 11, height = 9)
 ### Lag plots
 
 ```{r}
-#| label: monthly-lag-plots
+#| label: fig-lag-plots
+#| fig-cap: "**Lag plots.** Each panel plots a series against its own value 1 to 12 months earlier. Tight, straight patterns signal strong dependence on the past, and recurring patterns can reveal yearly cycles."
+#| fig-subcap:
+#|   - "Data Analysis Job Postings"
+#|   - "Federal Funds Rate"
+#|   - "PCE"
+#|   - "PPI Information"
+#|   - "NVIDIA Revenue ($B, quarterly)"
+#| layout-ncol: 1
 #| fig-width: 11
 #| fig-height: 9
 
@@ -1455,7 +1501,8 @@ for (var_name in names(monthly_variables)) {
 ### ACF plots
 
 ```{r}
-#| label: monthly-acf
+#| label: fig-monthly-acf
+#| fig-cap: "**Autocorrelation of each monthly series.** Correlation of a series with its own past. Slow decay points to a trend, and spikes at multiples of 12 point to yearly seasonality."
 #| fig-width: 11
 #| fig-height: 9
 
@@ -1472,7 +1519,8 @@ wrap_plots(acf_plots, ncol = 2)
 ### Stationarity (Augmented Dickey–Fuller test)
 
 ```{r}
-#| label: monthly-adf
+#| label: tbl-adf
+#| tbl-cap: "**Stationarity (ADF) test results.** A p-value below 0.05 means the series has no persistent trend and is stationary. Otherwise it needs differencing or a model that handles trends."
 
 adf_results <- map_dfr(names(monthly_variables), function(var_name) {
   adf_result <- adf.test(df.ts[, var_name])
@@ -1485,7 +1533,7 @@ adf_results <- map_dfr(names(monthly_variables), function(var_name) {
   )
 })
 
-kable(adf_results, digits = 4, caption = "ADF test results for monthly variables") %>%
+kable(adf_results, digits = 4) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
@@ -1494,7 +1542,8 @@ If p-value \< 0.05 → reject the unit root → stationary; if p-value ≥ 0.05 
 ## Fitting the ARIMAX model with `auto.arima()`
 
 ```{r}
-#| label: monthly-auto-arima
+#| label: fig-auto-arima-residuals
+#| fig-cap: "**Residual check for the automatic ARIMAX fit.** Residuals over time, their autocorrelation and their distribution. A good fit leaves patternless noise."
 
 y    <- df.ts[, "DataAnalysisJobPostings"]
 xreg <- df.ts[, xreg_names]
@@ -1511,7 +1560,8 @@ checkresiduals(fit_auto)
 We first fit a linear regression of DA job postings on the four predictors and then model the regression residuals as a (S)ARIMA process.
 
 ```{r}
-#| label: monthly-regression
+#| label: fig-regression-residual-acf
+#| fig-cap: "**ACF of the regression residuals.** Strong autocorrelation shows that the plain regression misses time structure, which the SARIMA error model must capture."
 
 reg_model <- lm(DataAnalysisJobPostings ~ FedFundsRate + PCE + PPIInformation + NVIDIARevenue, data = df)
 summary(reg_model)
@@ -1535,7 +1585,8 @@ auto.arima(res.fit)
 #### First-order differencing
 
 ```{r}
-#| label: res-first-diff
+#| label: fig-res-first-diff
+#| fig-cap: "**ACF and PACF after first differencing.** Used to judge how many autoregressive and moving-average terms the error model needs once the trend is removed."
 #| fig-width: 11
 #| fig-height: 4
 
@@ -1553,7 +1604,8 @@ No additional ordinary differencing appears necessary, so $d = 0$ is a candidate
 #### Residuals without differencing
 
 ```{r}
-#| label: res-no-diff
+#| label: fig-res-no-diff
+#| fig-cap: "**ACF and PACF with no differencing.** Suggests candidate non-seasonal orders (p and q) directly from the regression residuals."
 #| fig-width: 11
 #| fig-height: 4
 
@@ -1569,7 +1621,8 @@ From the ACF: $q = 1, 2, 3, 4$; from the PACF: $p = 1$.
 #### Seasonal differencing only
 
 ```{r}
-#| label: res-seasonal-diff
+#| label: fig-res-seasonal-diff
+#| fig-cap: "**ACF and PACF after seasonal differencing.** Removing the 12-month cycle highlights the seasonal terms (P and Q)."
 #| fig-width: 11
 #| fig-height: 4
 
@@ -1587,7 +1640,8 @@ From the PACF: $P = 1$; from the ACF: $Q = 1$; one seasonal difference: $D = 1$.
 #### Seasonal differencing on top of first differencing
 
 ```{r}
-#| label: res-both-diff
+#| label: fig-res-both-diff
+#| fig-cap: "**ACF and PACF after first and seasonal differencing.** The most heavily differenced version, used to check whether both kinds of differencing are needed."
 #| fig-width: 11
 #| fig-height: 4
 
@@ -1609,7 +1663,8 @@ Here $d = 1, D = 1, P = 1, Q = 1$.
 ### Non-seasonal ARIMA search
 
 ```{r}
-#| label: arima-search
+#| label: tbl-arima-search
+#| tbl-cap: "**Non-seasonal ARIMA search.** The ten best combinations of ARIMA settings for the regression residuals, ranked by AIC (lower is better). The highlighted row is the best."
 
 p_range <- 1:4
 d_range <- 0:1
@@ -1629,7 +1684,7 @@ arima_search <- expand_grid(p = p_range, d = d_range, q = q_range) %>%
 
 top_arima <- head(arima_search, 10)
 
-kable(top_arima, digits = 3, align = "c", caption = "Top 10 ARIMA models by AIC") %>%
+kable(top_arima, digits = 3, align = "c") %>%
   kable_styling(full_width = FALSE) %>%
   row_spec(which.min(top_arima$AIC), bold = TRUE, background = "#FFFF99")
 ```
@@ -1637,7 +1692,12 @@ kable(top_arima, digits = 3, align = "c", caption = "Top 10 ARIMA models by AIC"
 ### Seasonal ARIMA (SARIMA) search
 
 ```{r}
-#| label: sarima-search
+#| label: tbl-sarima-search
+#| tbl-cap: "**Seasonal ARIMA (SARIMA) search.** Candidate seasonal error models for the regression residuals, ranked by AIC and BIC (lower is better)."
+#| tbl-subcap:
+#|   - "Top 10 SARIMA models by AIC"
+#|   - "Best SARIMA models by AIC and by BIC"
+#| layout-ncol: 1
 
 SARIMA.c <- function(p1, p2, q1, q2, P1, P2, Q1, Q2, data, d = 0, D = 1, s = 12) {
 
@@ -1671,7 +1731,7 @@ sarima_output <- SARIMA.c(p1 = 0, p2 = 1, q1 = 1, q2 = 4,
 
 top_sarima <- sarima_output %>% arrange(AIC) %>% head(10)
 
-kable(top_sarima, digits = 3, align = "c", caption = "Top 10 SARIMA models by AIC") %>%
+kable(top_sarima, digits = 3, align = "c") %>%
   kable_styling(full_width = FALSE) %>%
   row_spec(which.min(top_sarima$AIC), bold = TRUE, background = "#FFFF99")
 
@@ -1680,7 +1740,7 @@ bind_rows(
   "Best by BIC" = slice_min(sarima_output, BIC, n = 1, with_ties = FALSE),
   .id = "Selection_Criterion"
 ) %>%
-  kable(digits = 3, align = "c", caption = "Best SARIMA models by AIC and BIC") %>%
+  kable(digits = 3, align = "c") %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
@@ -1696,7 +1756,8 @@ bind_rows(
 The two seasonal candidates are compared with an expanding-window cross-validation. The initial training window is roughly one-third of the sample (rounded down to whole years), and 12-month-ahead forecasts are produced at every origin.
 
 ```{r}
-#| label: ts-cv
+#| label: tbl-cv-rmse
+#| tbl-cap: "**Rolling-origin cross-validation error.** Forecast error (RMSE) for each months-ahead horizon, for the two SARIMA candidates. Lower is better."
 
 y_cv <- res.fit
 n    <- length(y_cv)
@@ -1737,12 +1798,13 @@ for (i in seq_len(n_origins)) {
 rmse_table <- tibble(Horizon = 1:h) %>%
   bind_cols(map_dfc(cv_errors, ~ sqrt(colMeans(.x^2, na.rm = TRUE))))
 
-kable(rmse_table, digits = 4, caption = "Rolling-origin RMSE by forecast horizon") %>%
+kable(rmse_table, digits = 4) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
 ```{r}
-#| label: ts-cv-plot
+#| label: fig-cv-rmse
+#| fig-cap: "**Cross-validation error by forecast horizon.** Lower curves mean more accurate forecasts. The SARIMA candidate that stays lower across horizons is preferred."
 #| fig-width: 10
 #| fig-height: 6
 
@@ -1765,7 +1827,13 @@ save_plot(fig_cv, "Monthly_CV_RMSE.png", width = 10, height = 6)
 ## Model diagnostics
 
 ```{r}
-#| label: diagnostics
+#| label: fig-diagnostics
+#| fig-cap: "**Residual diagnostics for the candidate error models.** Each set shows standardized residuals, their autocorrelation, a normal Q-Q plot and Ljung-Box p-values. A good model leaves patternless residuals and p-values above 0.05."
+#| fig-subcap:
+#|   - "ARIMA(1,0,1)"
+#|   - "ARIMA(3,1,1)"
+#|   - "SARIMA(1,0,1)(0,1,1)[12]"
+#| layout-ncol: 1
 #| fig-width: 10
 #| fig-height: 8
 
@@ -1820,7 +1888,8 @@ round(coef(fit), 4)
 The same SARIMA error structure is refitted for each job-opening series with and without NVIDIA revenue. Software and overall job openings are built exactly like the DA series, from the daily Indeed files aggregated to monthly averages.
 
 ```{r}
-#| label: other-jobs-models
+#| label: tbl-nvidia-check
+#| tbl-cap: "**Does NVIDIA revenue help?** The estimated NVIDIA effect (US$ billions per quarter) for each job series, how statistically strong it is, and AICc with and without it. A lower AICc means the better model."
 
 read_job_index <- function(file, name) {
   x <- read.csv(file.path(data_folder, file))[, 1:2]
@@ -1870,8 +1939,7 @@ nvidia_check <- imap_dfr(job_fits, function(f, job) {
 
 save_table(nvidia_check, "Monthly_NVIDIA_check.csv")
 
-kable(nvidia_check, digits = 3,
-      caption = "Effect of adding NVIDIA revenue (US$ billions per quarter) to the monthly ARIMAX models") %>%
+kable(nvidia_check, digits = 3) %>%
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
@@ -1955,7 +2023,8 @@ fcast <- forecast(fit, xreg = fxreg, h = monthly_h)
 ```
 
 ```{r}
-#| label: final-forecast-plot
+#| label: fig-final-forecast
+#| fig-cap: "**36-month forecast of DA job postings.** The red line is the forecast from the final ARIMAX model, with 80% and 95% prediction bands. The future values of the predictors were themselves forecast."
 #| fig-width: 11
 #| fig-height: 6
 
@@ -2007,8 +2076,8 @@ best_models %>%
 - **CAPEX and PPI add little at the daily horizon.** The simple univariate ARIMA baseline has the lowest test-period error for data analytics and software job openings, and the Diebold–Mariano tests show the CAPEX + PPI model is significantly worse there. For overall job openings, CAPEX + PPI is only about 1% more accurate than the baseline, which is not a statistically significant difference.
 - **NVIDIA revenue gives a mixed picture at the daily horizon.** For data analytics, the NVIDIA ARIMAX model has the lowest test-period error (about 3.8% below the ARIMA baseline, with a significant Diebold–Mariano test). For software it is about 3% worse than the baseline, and for overall openings it is essentially tied. NVIDIA revenue is constant for 35 of the 36 test days, so these differences mostly reflect the different error model that `auto.arima` selects, not new information from revenue, and should not be read as evidence that revenue predicts daily postings. The CCF on levels is significantly negative (shared trends), while no first-difference CCF value for NVIDIA is outside the 95% limits.
 - **Prophet is the weakest baseline.** It is significantly less accurate than univariate ARIMA for all three job-opening series.
-- **Lead–lag structure.** CCFs on raw levels are dominated by shared trends; after first differencing, the remaining significant lags (see the peak table) indicate which signals lead changes in job openings.
-- **NVIDIA revenue is not a reliable driver (monthly).** Once the error structure is modeled, NVIDIA revenue has a positive but statistically insignificant coefficient for data analytics (p ≈ 0.18) and overall job openings (p ≈ 0.55), and a borderline one for software (p ≈ 0.06). Adding it does not improve AICc for DA or ALL, and improves it only slightly for SW (see the NVIDIA comparison table). Its strong negative association in the plain regression reflects a shared time trend rather than a usable signal.
+- **Lead–lag structure.** CCFs on raw levels are dominated by shared trends; after first differencing, the remaining significant lags (see @tbl-ccf-peaks) indicate which signals lead changes in job openings.
+- **NVIDIA revenue is not a reliable driver (monthly).** Once the error structure is modeled, NVIDIA revenue has a positive but statistically insignificant coefficient for data analytics (p ≈ 0.18) and overall job openings (p ≈ 0.55), and a borderline one for software (p ≈ 0.06). Adding it does not improve AICc for DA or ALL, and improves it only slightly for SW (see @tbl-nvidia-check). Its strong negative association in the plain regression reflects a shared time trend rather than a usable signal.
 - **Macroeconomic drivers (monthly).** The Federal Funds Rate has a strong negative association with DA and SW postings (larger in magnitude for SW), consistent with tighter monetary conditions reducing hiring in technology-related roles, while its effect on overall openings is much smaller. PCE enters positively for all three series, and PPI (Information) is negatively associated with DA and SW but positively with overall openings, highlighting how technology-related roles respond differently to sector-level pricing conditions.
 
 **Limitations**
