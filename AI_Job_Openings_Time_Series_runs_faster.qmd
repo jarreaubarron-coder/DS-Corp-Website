@@ -1,7 +1,6 @@
 ---
 title: "AI Adoption and Job-Market Demand: Time-Series Analysis"
 subtitle: "Data analytics, software, and overall U.S. job openings versus CAPEX, PPI (Information), the Federal Funds Rate, PCE, and NVIDIA revenue"
-author: "Dr. Purna Gamage"
 date: today
 format:
   html:
@@ -33,7 +32,7 @@ The rapid growth of generative AI raises important questions about how AI adopti
 **Data**
 
 | Variable(s) | Description | Source |
-|----|----|----|
+|------------------------|------------------------|------------------------|
 | DA, SW, ALL job openings | Daily job-posting indices | Indeed Hiring Lab |
 | CAPEX, PPI (Information) | Capital expenditure and producer price index (daily-interpolated) | FRED |
 | FEDFUNDS, PCE, PPI (Information) | Monthly macroeconomic indicators | FRED |
