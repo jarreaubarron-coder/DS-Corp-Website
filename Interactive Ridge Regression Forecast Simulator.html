@@ -50,6 +50,43 @@
             </div>
         </div>
 
+        <!-- Plain-English Summary -->
+        <details open class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100" id="plain-english-summary">
+            <summary class="text-base font-bold text-slate-800 cursor-pointer">Plain-English summary: what this simulator does</summary>
+            <div class="mt-4 space-y-4 text-sm text-slate-600">
+                <p>
+                    <span class="font-semibold text-slate-800">The idea.</span>
+                    This tool is a "what if" calculator for job postings. You choose how much NVIDIA earns in a quarter and how much companies spend on capital equipment (Capex),
+                    and it shows how many job postings the model expects under those conditions.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-slate-800 mb-1">How to use it</h4>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-medium">Sliders:</span> drag NVIDIA Quarterly Revenue (in millions of dollars) and Capex to try different scenarios. They start at the latest values in the data.</li>
+                            <li><span class="font-medium">Live Forecast Result:</span> the predicted number of postings, updating as you drag.</li>
+                            <li><span class="font-medium">Line chart:</span> the model's predictions (what it would have guessed) next to the real postings, month by month from June 2021 to January 2026. The closer the lines, the better the fit.</li>
+                            <li><span class="font-medium">Table:</span> the monthly numbers behind the chart.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-slate-800 mb-1">What the model learned</h4>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-medium">Ridge regression</span> is a straight-line prediction method that keeps its weights modest, which helps when the inputs rise and fall together, as NVIDIA revenue and Capex do.</li>
+                            <li><span class="font-medium">Weights:</span> both are negative. Holding the other fixed, each extra $1,000 million of NVIDIA revenue goes with about 17 fewer postings, and each extra point of Capex goes with about 3 fewer.</li>
+                            <li><span class="font-medium">Intercept (baseline):</span> the average level of postings (about 789) when both inputs sit at their historical averages.</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="text-slate-500">
+                    <span class="font-semibold text-slate-700">Be careful.</span>
+                    Both inputs climbed over these years while postings fell, so the negative weights capture a shared trend, not proof that higher revenue or spending removes jobs.
+                    The sliders also reach well past the values the model has seen (NVIDIA revenue up to $150,000 million, against about $36,000 million in the data), and predictions there are rough guesses.
+                    The model never shows fewer than zero postings, so extreme settings can bottom out at 0. Treat the result as an illustration of the model, not a precise forecast.
+                </p>
+            </div>
+        </details>
+
         <!-- Primary Workspace -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Slider Controls -->
