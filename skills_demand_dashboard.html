@@ -85,6 +85,7 @@
                         <ul class="list-disc pl-5 space-y-1">
                             <li><span class="font-medium">Pick up to six skills</span> with the buttons, or click any row of the scoreboard.</li>
                             <li><span class="font-medium">Change the date range</span> and choose whether the lines restart at 100 on the first day (easier to compare) or keep Indeed's February&nbsp;2020 base.</li>
+                            <li><span class="font-medium">Percentage chart:</span> the second chart removes the overall fall in postings, showing each skill's share of all skill demand (or its demand relative to all postings).</li>
                             <li><span class="font-medium">Skill profile chart:</span> see which skills a job family needs most, and which stand out compared with the average job.</li>
                             <li><span class="font-medium">Scoreboard:</span> click a column title to sort all 35 skills by change in demand.</li>
                         </ul>
@@ -174,6 +175,31 @@
             <div id="legend1" class="flex flex-wrap gap-x-4 gap-y-1 mb-3"></div>
             <div class="relative" style="height: 420px;"><canvas id="chart-time" role="img" aria-label="Line chart of skill demand indexes over time. The same numbers appear in the scoreboard table below."></canvas></div>
             <p class="text-xs text-gray-400 mt-2" id="chart1-note"></p>
+        </div>
+
+        <!-- Chart 2: percentages -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800">Skill demand as a percentage</h3>
+                    <p class="text-sm text-gray-500 max-w-3xl">The chart above falls mostly because job postings overall fell after the 2022 peak. This chart removes that: it shows each skill's demand <em>relative to everything else</em>, so a line only moves when a skill gains or loses ground.</p>
+                </div>
+                <div class="flex items-end gap-3">
+                    <div>
+                        <label for="rel-mode" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Measure</label>
+                        <select id="rel-mode" class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-sm text-gray-700">
+                            <option value="share">Share of all skill demand (%)</option>
+                            <option value="rel">Relative to all postings (%)</option>
+                        </select>
+                    </div>
+                    <button type="button" id="download-csv2" class="px-3 py-2 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-gray-100">Download CSV</button>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 mb-3" id="rel-explain"></p>
+            <div id="legend2" class="flex flex-wrap gap-x-4 gap-y-1 mb-3"></div>
+            <div class="relative" style="height: 400px;"><canvas id="chart-rel" role="img" aria-label="Line chart of each selected skill's share of total skill demand, or its demand relative to all job postings, over time."></canvas></div>
+            <div id="rel-table" class="mt-4 overflow-auto"></div>
+            <p class="text-xs text-gray-400 mt-2">Uses the same skills, date range and smoothing as the chart above. The 35 skills always add up to 100%, so a share can only rise if other skills' shares fall.</p>
         </div>
 
         <!-- Profile + scoreboard -->
@@ -342,7 +368,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
     }
 
     // Slice, smooth, (monthly-aggregate) and (rebase) a full-length series for plotting
-    function prepare(arr) {
+    function prepare(arr, rebase = state.rebase) {
         let a = arr;
         if (state.smooth === '30d') a = trailingMean(arr, 30);
         let labels = D.dates.slice(state.start, state.end + 1);
@@ -353,7 +379,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
             labels = [...m.keys()].map(k => k + '-01');
             vals = [...m.values()].map(v => v.reduce((s, x) => s + x, 0) / v.length);
         }
-        if (state.rebase) {
+        if (rebase) {
             const k = Math.min(30, state.end - state.start + 1);
             const base = meanOf(arr, state.start, state.start + k - 1);
             vals = vals.map(v => v / base * 100);
@@ -514,6 +540,81 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
         chartTime.update('none');
     }
 
+    // ----- chart 2: share of skill demand / relative to all postings -------------------
+    const WT = Object.fromEntries(D.skills.map(s => [s.name, w100(s.im.DA) + w100(s.im.SW) + w100(s.im.ALL)]));
+    const TOT = D.dates.map((_, i) => D.skills.reduce((t, s) => t + WT[s.name] * BLEND[s.name][i], 0));
+    const SHARE = Object.fromEntries(D.skills.map(s => [s.name, BLEND[s.name].map((v, i) => WT[s.name] * v / TOT[i] * 100)]));
+    const REL = Object.fromEntries(D.skills.map(s => [s.name, BLEND[s.name].map((v, i) => v / D.idx.ALL[i] * 100)]));
+    const AVG_SHARE = 100 / D.skills.length;
+    let chartRel;
+
+    function relSeries() {
+        const mode = $('rel-mode').value;
+        const out = state.sel.map(n => ({ label: n, color: state.color[n], dash: [], width: 2.4,
+            raw: mode === 'share' ? SHARE[n] : REL[n],
+            data: prepare(mode === 'share' ? SHARE[n] : REL[n], mode === 'rel' && state.rebase) }));
+        const flat = new Array(N).fill(mode === 'share' ? AVG_SHARE : 100);
+        out.push({ label: mode === 'share' ? 'Average skill (1 of 35)' : 'Same as all postings', color: '#52514e', dash: [7, 4], width: 2, raw: flat, data: prepare(flat, false) });
+        return { mode, ser: out };
+    }
+
+    function renderRel() {
+        const { mode, ser } = relSeries();
+        const pct = v => v.toFixed(mode === 'share' ? 2 : 1) + '%';
+        $('rel-explain').innerHTML = mode === 'share'
+            ? '<span class="font-medium text-gray-800">Share of all skill demand.</span> Out of every 100 units of skill demand across these job postings, how many belong to this skill. Falling postings shrink every skill together, so only a change in the <em>mix</em> shows up here. If the line drifts down, postings that rely on the skill are shrinking faster than postings overall.'
+            : '<span class="font-medium text-gray-800">Relative to all postings.</span> The skill\'s demand index divided by the all-postings index. 100% means the skill\'s demand has moved exactly in step with the whole job market; 80% means it has fallen 20% further than the market.';
+        const labels = ser[0].data.labels;
+        const datasets = ser.map(s => ({ label: s.label, data: s.data.vals, borderColor: s.color, backgroundColor: s.color,
+            borderWidth: s.width, borderDash: s.dash, pointRadius: 0, pointHoverRadius: 4,
+            pointHoverBackgroundColor: s.color, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2, tension: 0.15 }));
+        const ytitle = mode === 'share' ? 'Share of all skill demand (%)' : (state.rebase ? 'Demand relative to all postings (%, start = 100)' : 'Demand relative to all postings (%)');
+        if (!chartRel) {
+            chartRel = new Chart($('chart-rel'), {
+                type: 'line', data: { labels, datasets }, plugins: [crosshair, endLabels],
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    layout: { padding: { right: 150 } },
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: INK, maxRotation: 0, autoSkip: true, maxTicksLimit: 7, callback(v) { return monthLabel(this.getLabelForValue(v)); } } },
+                        y: { grid: { color: GRID }, ticks: { color: INK }, title: { display: true, text: ytitle, color: INK } },
+                    },
+                    plugins: { legend: { display: false }, tooltip: { itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: {
+                        title: items => state.smooth === 'month' ? monthLabel(items[0].label) : dayLabel(items[0].label),
+                        label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(chartRel.$mode === 'share' ? 2 : 1)}%` } } },
+                },
+            });
+        } else { chartRel.data.labels = labels; chartRel.data.datasets = datasets; }
+        chartRel.$mode = mode;
+        chartRel.options.scales.y.title.text = ytitle;
+        chartRel.update('none');
+
+        $('legend2').innerHTML = ser.map(s =>
+            `<span class="legend-item"><span class="legend-swatch" style="border-color:${s.color};border-top-style:${s.dash.length ? 'dashed' : 'solid'}"></span>${s.label}</span>`).join('');
+
+        // start vs end table (averages of the first / last 30 days of the range)
+        const k = Math.min(30, state.end - state.start + 1);
+        const rows = ser.slice(0, -1).map(s => {
+            const a = meanOf(s.raw, state.start, state.start + k - 1), b = meanOf(s.raw, state.end - k + 1, state.end);
+            const d = b - a;
+            return `<tr class="border-b border-gray-100"><td class="py-1.5 pr-3"><span style="display:inline-block;width:.6rem;height:.6rem;border-radius:999px;background:${s.color};margin-right:.4rem"></span>${s.label}</td>
+                <td class="py-1.5 pr-3 text-right tabular-nums text-gray-600">${pct(a)}</td><td class="py-1.5 pr-3 text-right tabular-nums text-gray-600">${pct(b)}</td>
+                <td class="py-1.5 text-right tabular-nums ${d >= 0 ? 'text-green-700' : 'text-orange-700'}">${(d >= 0 ? '+' : '\u2212') + Math.abs(d).toFixed(mode === 'share' ? 2 : 1)} pts</td></tr>`;
+        }).join('');
+        $('rel-table').innerHTML = rows ? `<table class="w-full text-sm text-left"><thead class="text-xs uppercase text-gray-500 border-b border-gray-200"><tr>
+            <th class="py-2 pr-3">Skill</th><th class="py-2 pr-3 text-right">Start of range</th><th class="py-2 pr-3 text-right">End of range</th><th class="py-2 text-right">Change</th></tr></thead><tbody>${rows}</tbody></table>`
+            : '<p class="text-sm text-gray-500">Pick at least one skill above to draw its line.</p>';
+    }
+
+    function downloadCsv2() {
+        const { ser } = relSeries(); if (!ser.length) return;
+        const rows = [['date', ...ser.map(s => s.label)]];
+        ser[0].data.labels.forEach((d, i) => rows.push([d, ...ser.map(s => s.data.vals[i].toFixed(4))]));
+        const blob = new Blob([rows.map(r => r.map(c => /[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c).join(',')).join('\n')], { type: 'text/csv' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'skill_demand_percent.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+
     function renderNote() {
         const el = $('chart1-note'); el.style.color = '';
         const sm = { none: 'daily values (Indeed already averages 7 days)', '30d': '30-day trailing average', month: 'monthly averages' }[state.smooth];
@@ -657,7 +758,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
     function render() {
         paintChips();
         const stats = skillStats();
-        renderKPIs(stats); renderScoreboard(stats); renderChart1(); renderNote();
+        renderKPIs(stats); renderScoreboard(stats); renderChart1(); renderNote(); renderRel();
         $('chart1-sub').textContent = state.sel.length ? '' : 'Pick at least one skill above to draw its line.';
     }
 
@@ -683,6 +784,8 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
     $('show-families').addEventListener('change', e => { state.fams = e.target.checked; render(); });
     $('clear-skills').addEventListener('click', () => { state.sel = []; render(); });
     $('download-csv').addEventListener('click', downloadCsv);
+    $('download-csv2').addEventListener('click', downloadCsv2);
+    $('rel-mode').addEventListener('change', renderRel);
     $('fam-select').addEventListener('change', renderProfile);
     $('prof-mode').addEventListener('change', renderProfile);
     $('occ-fam').addEventListener('change', renderOccs);
