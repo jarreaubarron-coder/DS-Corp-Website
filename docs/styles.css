@@ -39,6 +39,31 @@
   filter: invert(1);
 }
 
+/* Menu dropdown: one tidy list instead of a row of squeezed links */
+.navbar .dropdown-menu {
+  min-width: 22rem;
+  max-width: 92vw;
+  padding: 0.4rem 0;
+  border: 0;
+  border-top: 3px solid var(--gu-gray);
+  border-radius: 0 0 0.4rem 0.4rem;
+  box-shadow: 0 8px 20px rgba(4, 30, 66, 0.25);
+}
+.navbar .dropdown-menu .dropdown-item {
+  color: var(--gu-blue) !important;
+  padding: 0.55rem 1.1rem;
+  white-space: normal;
+}
+.navbar .dropdown-menu .dropdown-item:hover,
+.navbar .dropdown-menu .dropdown-item:focus {
+  background-color: var(--gu-gray-light);
+  color: var(--gu-blue-light) !important;
+}
+.navbar .dropdown-menu .dropdown-item.active {
+  background-color: var(--gu-blue);
+  color: #fff !important;
+}
+
 /* Page content */
 h1, h2, h3, h4 {
   color: var(--gu-blue);

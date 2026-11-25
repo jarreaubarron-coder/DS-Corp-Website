@@ -5,24 +5,25 @@ project:
 website:
   title: "Georgetown Data Science Corps - Summer 2026"
   navbar:
-    left:
-      - href: index.qmd
-        text: Introduction
-      - href: ds.qmd
-        text: Data Sources
-      - href: elasticity_dashboard_standalone.html
-        text: Data Visualization 1 - Cross Price Elasticity Dashboard
-      - href: Interactive Ridge Regression Forecast Simulator.html
-        text: Data Visualization 2 - Ridge Regression Forecast Simulator
-      - href: AI_Job_Openings_Time_Series_runs_faster.qmd
-        text: Stats for Nerds
-      - href: DL.qmd
-        text: Deep Learning Analysis
-      - href: MC.qmd
-        text: Model Comparison
-      - href: Con.qmd
-        text: Conclusions
-      
+    right:
+      - text: "Menu"
+        menu:
+          - href: index.qmd
+            text: Introduction
+          - href: ds.qmd
+            text: Data Sources
+          - href: elasticity_dashboard_standalone.html
+            text: Data Visualization 1 - Cross Price Elasticity Dashboard
+          - href: Interactive Ridge Regression Forecast Simulator.html
+            text: Data Visualization 2 - Ridge Regression Forecast Simulator
+          - href: AI_Job_Openings_Time_Series_runs_faster.qmd
+            text: Stats for Nerds
+          - href: DL.qmd
+            text: Deep Learning Analysis
+          - href: MC.qmd
+            text: Model Comparison
+          - href: Con.qmd
+            text: Conclusions
 
 format:
   html:
