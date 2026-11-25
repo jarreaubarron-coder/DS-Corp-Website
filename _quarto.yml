@@ -16,6 +16,8 @@ website:
             text: Data Visualization 1 - Cross Price Elasticity Dashboard
           - href: Interactive Ridge Regression Forecast Simulator.html
             text: Data Visualization 2 - Ridge Regression Forecast Simulator
+          - href: skills_demand_dashboard.html
+            text: Data Visualization 3 - Job Skills Demand Dashboard
           - href: AI_Job_Openings_Time_Series_runs_faster.qmd
             text: Stats for Nerds
           - href: DL.qmd
