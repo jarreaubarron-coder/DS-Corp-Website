@@ -307,7 +307,7 @@
                 <p><span class="font-medium text-gray-800">Indeed data.</span> Three U.S. daily posting indexes (7-day averages, February&nbsp;1,&nbsp;2020&nbsp;=&nbsp;100): <em>Data &amp; Analytics</em>, <em>Software Development</em>, and <em>All postings</em>. The files do not list individual job titles, so the link to titles goes through O*NET.</p>
                 <p><span class="font-medium text-gray-800">O*NET data.</span> Version <span id="onet-ver"></span>, 35 skills (10 essential and 25 transferable) rated for 894 occupations. Importance is rated 1 to 5 by occupational analysts. Each Indeed family is represented by the O*NET occupations listed in the job-title table, chosen by matching the families' typical job titles (such as <em>software engineer</em> and <em>data analyst</em>) to O*NET's title lists. Every occupation counts equally; O*NET has no hiring volumes to weight them.</p>
                 <p><span class="font-medium text-gray-800">Skill demand index.</span> For a skill with O*NET importance <em>w</em><sub>DA</sub> in Data &amp; Analytics jobs, <em>w</em><sub>SW</sub> in Software Development jobs and <em>w</em><sub>ALL</sub> in the average of all 894 occupations (each rescaled to 0&ndash;100), the index on a given day is (<em>w</em><sub>DA</sub>&nbsp;&times;&nbsp;DA index + <em>w</em><sub>SW</sub>&nbsp;&times;&nbsp;SW index + <em>w</em><sub>ALL</sub>&nbsp;&times;&nbsp;ALL index) / (<em>w</em><sub>DA</sub> + <em>w</em><sub>SW</sub> + <em>w</em><sub>ALL</sub>). The three groups count equally; no posting volumes are available to weight them. Change over a range compares the average of the first 30 days with the average of the last 30 days.</p>
-                <p><span class="font-medium text-gray-800">Limits.</span> (1) Only two job families have posting data, so every skill line is a mix of the same three trends, and the two tech families have moved almost identically. (2) O*NET ratings are a snapshot, so the lines show how demand for <em>jobs</em> that use a skill moved, not how the skill requirements of postings changed. (3) O*NET has not yet rated some titles Indeed would file here, such as Data Scientists, so Business Intelligence Analysts, Statisticians and Operations Research Analysts stand in. (4) The all-postings benchmark covers every occupation. Adding more Indeed job families would make the skill lines more distinct.</p>
+                <p><span class="font-medium text-gray-800">Limits.</span> (1) Only two job families have posting data, so every skill line is a mix of the same three trends, and the two tech families have moved almost identically. (2) O*NET ratings are a snapshot, so the lines show how demand for <em>jobs</em> that use a skill moved, not how the skill requirements of postings changed. (3) O*NET has not yet rated some titles Indeed would file here, such as Data Scientists, so Business Intelligence Analysts, Statisticians and Operations Research Analysts stand in. (4) The all-postings benchmark covers every occupation. Adding more Indeed job families would make the skill lines more distinct. (5) The ChatGPT marker shows the date of the public release only; the charts show timing, not cause.</p>
                 <p class="text-xs text-gray-400">Sources: Indeed Hiring Lab job postings index (via FRED for Software Development and All postings); O*NET 30.3 Database (U.S. Department of Labor/ETA, CC BY 4.0).</p>
             </div>
         </details>
@@ -487,6 +487,34 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
         }
     };
 
+    // Vertical marker for the public release of ChatGPT (Nov 30, 2022)
+    const CHATGPT = '2022-11-30';
+    const chatgptInRange = () => D.dates[state.start] <= CHATGPT && CHATGPT <= D.dates[state.end];
+    const eventLine = {
+        id: 'eventLine',
+        afterDatasetsDraw(chart) {
+            const labels = chart.data.labels; if (!labels || !labels.length) return;
+            const monthly = state.smooth === 'month';
+            const norm = l => monthly ? l.slice(0, 7) : l;
+            const key = norm(CHATGPT);
+            if (norm(labels[0]) > key) return;
+            const i = labels.findIndex(l => norm(l) >= key); if (i < 0) return;
+            const { ctx, chartArea } = chart; const x = chart.scales.x.getPixelForValue(i);
+            ctx.save();
+            ctx.strokeStyle = '#041E42'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+            ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke(); ctx.setLineDash([]);
+            ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+            const text = 'ChatGPT released \u00b7 Nov 30, 2022', w = ctx.measureText(text).width;
+            const right = x + 6 + w + 8 <= chartArea.right;
+            const bx = right ? x + 5 : x - 5 - w - 8;
+            ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillRect(bx, chartArea.top + 4, w + 8, 18);
+            ctx.fillStyle = '#041E42'; ctx.fillText(text, bx + 4, chartArea.top + 13);
+            ctx.restore();
+        }
+    };
+    const eventLegend = () => chatgptInRange()
+        ? '<span class="legend-item"><span style="display:inline-block;height:.9rem;border-left:2px dashed #041E42"></span>ChatGPT released (Nov 30, 2022)</span>' : '';
+
     let chartTime, chartProf;
     function currentSeries() {
         const out = [];
@@ -509,7 +537,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
         }));
         if (!chartTime) {
             chartTime = new Chart($('chart-time'), {
-                type: 'line', data: { labels, datasets }, plugins: [crosshair, endLabels],
+                type: 'line', data: { labels, datasets }, plugins: [crosshair, endLabels, eventLine],
                 options: {
                     responsive: true, maintainAspectRatio: false, animation: false,
                     layout: { padding: { right: 150 } },
@@ -535,7 +563,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
             chartTime.data.labels = labels; chartTime.data.datasets = datasets; chartTime.update('none');
         }
         $('legend1').innerHTML = ser.map(s =>
-            `<span class="legend-item"><span class="legend-swatch" style="border-color:${s.color};border-top-style:${s.dash.length ? 'dashed' : 'solid'}"></span>${s.label}</span>`).join('');
+            `<span class="legend-item"><span class="legend-swatch" style="border-color:${s.color};border-top-style:${s.dash.length ? 'dashed' : 'solid'}"></span>${s.label}</span>`).join('') + eventLegend();
         chartTime.options.scales.y.title.text = state.rebase ? `Index (first 30 days = 100)` : 'Index (Feb 1, 2020 = 100)';
         chartTime.update('none');
     }
@@ -571,7 +599,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
         const ytitle = mode === 'share' ? 'Share of all skill demand (%)' : (state.rebase ? 'Demand relative to all postings (%, start = 100)' : 'Demand relative to all postings (%)');
         if (!chartRel) {
             chartRel = new Chart($('chart-rel'), {
-                type: 'line', data: { labels, datasets }, plugins: [crosshair, endLabels],
+                type: 'line', data: { labels, datasets }, plugins: [crosshair, endLabels, eventLine],
                 options: {
                     responsive: true, maintainAspectRatio: false, animation: false,
                     layout: { padding: { right: 150 } },
@@ -591,7 +619,7 @@ const DATA = {"meta":{"first":"2020-02-01","last":"2026-06-19","onet":"30.3","n_
         chartRel.update('none');
 
         $('legend2').innerHTML = ser.map(s =>
-            `<span class="legend-item"><span class="legend-swatch" style="border-color:${s.color};border-top-style:${s.dash.length ? 'dashed' : 'solid'}"></span>${s.label}</span>`).join('');
+            `<span class="legend-item"><span class="legend-swatch" style="border-color:${s.color};border-top-style:${s.dash.length ? 'dashed' : 'solid'}"></span>${s.label}</span>`).join('') + eventLegend();
 
         // start vs end table (averages of the first / last 30 days of the range)
         const k = Math.min(30, state.end - state.start + 1);
